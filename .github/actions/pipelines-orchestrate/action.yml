@@ -24,7 +24,7 @@ runs:
 
     - uses: actions/checkout@v4
       with:
-        path: infrarepo
+        path: infra-repo
         # Fetch all history
         fetch-depth: 0
 
@@ -81,11 +81,10 @@ runs:
 
     - name: Run Pipelines Orchestrate
       id: orchestrate
-      working-directory: infrarepo
       shell: bash
       env:
         REPO_URL: ${{ github.server_url }}/${{ github.repository }}
-        REPO_PATH: "."
+        REPO_PATH: "./infra-repo"
         SOURCE_REF: ${{ steps.ref.outputs.source_ref }}
         TARGET_REF: ${{ steps.ref.outputs.target_ref }}
         EVENT_TYPE: ${{ steps.event_type.outputs.event_type }}
@@ -104,7 +103,6 @@ runs:
       if: success()
       with:
         orchestrate_jobs: ${{ steps.orchestrate.outputs.jobs }}
-      working-directory: infrarepo
 
     - name: Update comment
       uses: ./pipelines-actions/.github/actions/pipelines-status-update
@@ -112,4 +110,3 @@ runs:
       with:
         step_name: "Detect Changes"
         step_status: "failed"
-      working-directory: infrarepo

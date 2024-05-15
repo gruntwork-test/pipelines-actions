@@ -100,15 +100,15 @@ runs:
         echo "jobs=$JOBS" >> $GITHUB_OUTPUT
 
     - name: Update comment
-      uses: ./pipelines-actions/.github/actions/pipelines-status-update
       working-directory: ./infra-repo
+      uses: ./pipelines-actions/.github/actions/pipelines-status-update
       if: success()
       with:
         orchestrate_jobs: ${{ steps.orchestrate.outputs.jobs }}
 
     - name: Update comment
-      uses: ./pipelines-actions/.github/actions/pipelines-status-update
       working-directory: ./infra-repo
+      uses: ./pipelines-actions/.github/actions/pipelines-status-update
       if: failure()
       with:
         step_name: "Detect Changes"

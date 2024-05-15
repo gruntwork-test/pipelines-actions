@@ -23,8 +23,8 @@ runs:
         fi
 
     - uses: actions/checkout@v4
-      path: infra-repo
       with:
+        path: infra-repo
         # Fetch all history
         fetch-depth: 0
 

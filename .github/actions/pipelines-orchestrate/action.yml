@@ -81,10 +81,11 @@ runs:
 
     - name: Run Pipelines Orchestrate
       id: orchestrate
+      working-directory: ./infra-repo
       shell: bash
       env:
         REPO_URL: ${{ github.server_url }}/${{ github.repository }}
-        REPO_PATH: "./infra-repo"
+        REPO_PATH: "."
         SOURCE_REF: ${{ steps.ref.outputs.source_ref }}
         TARGET_REF: ${{ steps.ref.outputs.target_ref }}
         EVENT_TYPE: ${{ steps.event_type.outputs.event_type }}
@@ -100,12 +101,14 @@ runs:
 
     - name: Update comment
       uses: ./pipelines-actions/.github/actions/pipelines-status-update
+      working-directory: ./infra-repo
       if: success()
       with:
         orchestrate_jobs: ${{ steps.orchestrate.outputs.jobs }}
 
     - name: Update comment
       uses: ./pipelines-actions/.github/actions/pipelines-status-update
+      working-directory: ./infra-repo
       if: failure()
       with:
         step_name: "Detect Changes"

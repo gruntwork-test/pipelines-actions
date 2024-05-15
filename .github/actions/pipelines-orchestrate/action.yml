@@ -81,7 +81,7 @@ runs:
 
     - name: Run Pipelines Orchestrate
       id: orchestrate
-      working-directory: ./infrarepo
+      working-directory: infrarepo
       shell: bash
       env:
         REPO_URL: ${{ github.server_url }}/${{ github.repository }}
@@ -100,16 +100,16 @@ runs:
         echo "jobs=$JOBS" >> $GITHUB_OUTPUT
 
     - name: Update comment
-      working-directory: ./infrarepo
       uses: ./pipelines-actions/.github/actions/pipelines-status-update
       if: success()
       with:
         orchestrate_jobs: ${{ steps.orchestrate.outputs.jobs }}
+      working-directory: infrarepo
 
     - name: Update comment
-      working-directory: ./infrarepo
       uses: ./pipelines-actions/.github/actions/pipelines-status-update
       if: failure()
       with:
         step_name: "Detect Changes"
         step_status: "failed"
+      working-directory: infrarepo

@@ -173,6 +173,7 @@ runs:
   steps:
     - name: Unpack and use cache
       id: cache
+      working-directory: ./infra-repo
       shell: bash
       if: ${{ inputs.cache != '' }}
       env:
@@ -284,6 +285,7 @@ runs:
 
     - name: Setup Action
       id: setup_action
+      working-directory: ./infra-repo
       if: ${{ inputs.cache == '' }}
       shell: bash
       env:
@@ -332,6 +334,7 @@ runs:
 
     - name: Generate role session name and requesting PR number
       id: generate_role_session_name
+      working-directory: ./infra-repo
       if: ${{ inputs.cache == '' }}
       shell: bash
       env:
@@ -363,6 +366,7 @@ runs:
 
     - name: "Read and parse new account request"
       id: account_request
+      working-directory: ./infra-repo
       shell: bash
       if: ${{ inputs.cache == '' && inputs.new_account_name != ''}}
       # Only try this if we've actually created the account
@@ -408,6 +412,7 @@ runs:
 
     - name: Read infra-live's Gruntwork config file
       id: gruntwork_config
+      working-directory: ./infra-repo
       if: ${{ inputs.cache == '' }}
       shell: bash
       env:
@@ -541,6 +546,7 @@ runs:
 
     - name: Get AWS role names for Pipelines
       id: get_role_name
+      working-directory: ./infra-repo
       if: ${{ inputs.cache == '' }}
       shell: bash
       env:
@@ -557,6 +563,7 @@ runs:
 
     - name: Parse account IDs
       id: parse
+      working-directory: ./infra-repo
       if: ${{ steps.setup_action.outputs.action != 'TERRAGRUNT_EXECUTE' && inputs.cache == '' }}
       shell: bash
       run: |

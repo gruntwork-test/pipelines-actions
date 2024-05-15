@@ -24,7 +24,7 @@ runs:
 
     - uses: actions/checkout@v4
       with:
-        path: infra-repo
+        path: infrarepo
         # Fetch all history
         fetch-depth: 0
 
@@ -81,7 +81,7 @@ runs:
 
     - name: Run Pipelines Orchestrate
       id: orchestrate
-      working-directory: ./infra-repo
+      working-directory: ./infrarepo
       shell: bash
       env:
         REPO_URL: ${{ github.server_url }}/${{ github.repository }}
@@ -100,14 +100,14 @@ runs:
         echo "jobs=$JOBS" >> $GITHUB_OUTPUT
 
     - name: Update comment
-      working-directory: "./infra-repo"
+      working-directory: ./infrarepo
       uses: ./pipelines-actions/.github/actions/pipelines-status-update
       if: success()
       with:
         orchestrate_jobs: ${{ steps.orchestrate.outputs.jobs }}
 
     - name: Update comment
-      working-directory: "./infra-repo"
+      working-directory: ./infrarepo
       uses: ./pipelines-actions/.github/actions/pipelines-status-update
       if: failure()
       with:

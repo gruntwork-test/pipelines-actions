@@ -35,6 +35,7 @@ runs:
 
     - name: Set custom ref variables
       id: ref
+      working-directory: ./infra-repo
       shell: bash
       # If this run was triggered manually, we'll use the source and target ref from the user input. Otherwise, we'll
       # use our default approach.

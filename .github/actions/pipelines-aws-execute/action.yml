@@ -1,0 +1,102 @@
+name: Terragrunt AWS Execute
+description: "Authenticates to AWS then invokes terragrunt"
+inputs:
+  PIPELINES_READ_TOKEN:
+    description: "The PIPELINES_READ_TOKEN secret"
+    required: true
+  working_directory:
+    description: ""
+    required: true
+  account_id:
+    description: ""
+    required: true
+  account_role_name:
+    description: ""
+    required: true
+  role_session_name:
+    description: ""
+    required: true
+  gruntwork_context:
+    description: ""
+    required: true
+
+
+outputs:
+  execute_stdout:
+    description: "The output of the Pipelines Execute command"
+    value: ${{ steps.execute.outputs.execute_stdout }}
+  plan_folder:
+    description: "A folder with plan files (if any)"
+    value: ${{ steps.execute.outputs.plan_folder }}
+  formatted_plan_output:
+    description: "A string, formatted in GitHub Markdown, rendering human readable output of the plan"
+    value: ${{ steps.execute.outputs.formatted_plan_output }}
+
+runs:
+  using: composite
+  steps:
+    - name: "Read in Gruntwork context"
+      id: gruntwork_context
+      uses: gruntwork-io/pipelines-bootstrap@v1.0.0
+      with:
+        cache: ${{ inputs.gruntwork_context }}
+
+    - name: Authenticate to AWS
+      id: aws_auth
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        # We can authenticate to any valid region, the IaC configured provider determines what region resources are created
+        # in. As a result we can pass the default aws region.
+        aws-region: ${{ steps.gruntwork_context.outputs.default_aws_region }}
+        role-to-assume: "arn:aws:iam::${{ inputs.account_id }}:role/${{ inputs.account_role_name }}"
+        role-duration-seconds: 3600
+        role-session-name: ${{ inputs.role_session_name }}
+
+    - name: "Get Auth Failure Reason"
+      shell: bash
+      id: auth_failure_reason
+      if: ${{ failure() }}
+      env:
+        ACCOUNT_ID: ${{ inputs.account_id }}
+        ACCOUNT_ROLE_NAME: ${{ inputs.account_role_name }}
+      run: |
+        # if the role_name begins with 'delegate' the role may not have been created yet
+        if [[ $ACCOUNT_ROLE_NAME == delegate* ]]; then
+          reason="Failed to authenticate to AWS. The role($ACCOUNT_ROLE_NAME) may not have been created yet. Contact your account administrator to ensure that access-control Pull Request for this account($ACCOUNT_ID) has been merged."
+        else
+          reason="Failed to authenticate to AWS. Verify that the role($ACCOUNT_ROLE_NAME) and account ID($ACCOUNT_ID) are correct."
+        fi
+
+        echo "auth_failure_reason=$reason" >> $GITHUB_OUTPUT
+
+    - name: "Add Auth Failure Notice if AWS Auth Fails"
+      uses: gruntwork-io/pipelines-status-update@v0.2.1
+      if: ${{ failure() }}
+      with:
+        step_name: "AWS Authentication"
+        step_status: "failed"
+        step_details: ${{ steps.auth_failure_reason.outputs.auth_failure_reason }}
+        pull_request_number: ${{ steps.gruntwork_context.outputs.pr_number }}
+
+    - name: "[Terragrunt Execute] Confirm Account Access"
+      if: ${{ steps.aws_auth.outcome == 'success' }}
+      shell: bash
+      env:
+        ACCOUNT: ${{ inputs.account_id }}
+        WORKING_DIRECTORY: ${{ inputs.working_directory }}
+      run: echo "::notice ::Running in account $ACCOUNT and planning in $WORKING_DIRECTORY"
+
+    - name: "[Terragrunt Execute] Run terragrunt ${{ inputs.terragrunt_command }} in ${{ inputs.working_directory }}"
+      if: ${{ steps.aws_auth.outcome == 'success' }}
+      id: execute
+      uses: gruntwork-io/pipelines-execute@v4.0.0
+      with:
+        token: ${{ inputs.PIPELINES_READ_TOKEN }}
+        tf_binary: ${{ steps.gruntwork_context.outputs.tf_binary }}
+        working_directory: ${{ inputs.working_directory }}
+        terragrunt_command: ${{ steps.gruntwork_context.outputs.terragrunt_command }}
+        infra_live_repo_branch: ${{ steps.gruntwork_context.outputs.branch }}
+        gruntwork_config_file: ${{ steps.gruntwork_context.outputs.gruntwork_config_file }}
+        infra_live_repo: "."
+        infra_live_directory: "."
+        deploy_branch_name: ${{ steps.gruntwork_context.outputs.deploy_branch_name }}

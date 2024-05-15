@@ -1,0 +1,112 @@
+name: Bootstrap a new account in access-control repo
+description: "Sets up a new AWS account and basic roles inside the access control repo"
+inputs:
+  PIPELINES_READ_TOKEN:
+    description: "The GitHub token to use for checking out the infrastructure-live repo"
+    required: true
+  ORG_REPO_ADMIN_TOKEN:
+    description: "The GitHub token to use for checking out the infrastructure-live repo"
+    required: true
+  gruntwork_context:
+    description: ""
+    required: true
+
+outputs:
+  pull_request_number:
+    description: "The number of the pull request that was created"
+    value: ${{ steps.create_access_control_pr.outputs.pr_number }}
+  pull_request_url:
+    description: "The URL of the pull request that was created"
+    value: ${{ steps.create_access_control_pr.outputs.pr_url }}
+
+runs:
+  using: composite
+  steps:
+    - name: "[Baseline]: Read account request"
+      id: gruntwork_context
+      uses: gruntwork-io/pipelines-bootstrap@v1.0.0
+      with:
+        cache: ${{ inputs.gruntwork_context }}
+
+    - name: "[BoilerplateAccessControl] Checkout access control repo"
+      uses: actions/checkout@v4
+      with:
+        token: ${{  inputs.ORG_REPO_ADMIN_TOKEN }}
+        repository: ${{github.repository_owner }}/${{ steps.gruntwork_context.outputs.access_control_repo }}
+        path: ${{ steps.gruntwork_context.outputs.access_control_repo }}
+        ref: main
+        fetch-depth: 0
+
+    - name: "[BoilerplateAccessControl] Install boilerplate"
+      shell: bash
+      env:
+        GRUNTWORK_INSTALLER_VERSION: ${{ steps.gruntwork_context.outputs.gruntwork_installer_version }}
+        BOILERPLATE_VERSION: ${{ steps.gruntwork_context.outputs.boilerplate_version }}
+      run: |
+        curl -Ls https://raw.githubusercontent.com/gruntwork-io/gruntwork-installer/main/bootstrap-gruntwork-installer.sh | bash /dev/stdin --version "$GRUNTWORK_INSTALLER_VERSION"
+        gruntwork-install --binary-name boilerplate --repo https://github.com/gruntwork-io/boilerplate --tag "$BOILERPLATE_VERSION"
+
+    - name: "[BoilerplateAccessControl] Checkout architecture catalog"
+      uses: actions/checkout@v4
+      with:
+        token: ${{ inputs.PIPELINES_READ_TOKEN }}
+        repository: gruntwork-io/terraform-aws-architecture-catalog
+        path: terraform-aws-architecture-catalog
+        ref: ${{ steps.gruntwork_context.outputs.arch_catalog_version }}
+
+    - name: "[BoilerplateAccessControl] Run boilerplate to scaffold new account in access-control repo"
+      shell: bash
+      working-directory: ${{ steps.gruntwork_context.outputs.access_control_repo }}
+      env:
+        WORKING_DIRECTORY: ${{ steps.gruntwork_context.outputs.working_directory }}
+        ORG_NAME_PREFIX: ${{ steps.gruntwork_context.outputs.org_name_prefix }}
+        AWS_REGION: ${{ steps.gruntwork_context.outputs.aws_region }}
+        DELEGATE_REPO_NAME: ${{ steps.gruntwork_context.outputs.delegate_repo_name }}
+      run: |
+        # Convert list of accounts to Bash array. We use working_directory here because GW Pipelines will configure
+        # its name as a comma-separated list of account names.
+        IFS=',' read -ra account_names <<<"$WORKING_DIRECTORY"
+
+        # Convert Bash array to JSON array: https://stackoverflow.com/a/67489301/483528
+        account_names_as_json_list="$(jq --compact-output --raw-output --monochrome-output --null-input '$ARGS.positional' --args -- "${account_names[@]}")"
+
+        # Convert yaml to JSON for consumption by boilerplate
+        aws_accounts="$(yq --no-colors -o=json -I=0 '../accounts.yml')"
+
+        # Run boilerplate to scaffold out the access control new account
+        boilerplate \
+          --template-url ../terraform-aws-architecture-catalog//templates/devops-foundations-infrastructure-live-access-control-accounts \
+          --output-folder . \
+          --var AWSAccounts="$aws_accounts" \
+          --var NewAWSAccounts="$account_names_as_json_list" \
+          --var OrgNamePrefix="$ORG_NAME_PREFIX" \
+          --var DefaultRegion="$AWS_REGION" \
+          --var GithubOrg=gruntwork-io \
+          --var DelegateRepoName="$DELEGATE_REPO_NAME" \
+          --non-interactive
+
+    - name: Ensure pull request
+      shell: bash
+      id: create_access_control_pr
+      working-directory: ${{ steps.gruntwork_context.outputs.access_control_repo }}
+      env:
+        DELEGATE_REPO: ${{ steps.gruntwork_context.outputs.delegate_repo_name }}
+        GH_TOKEN: ${{ inputs.ORG_REPO_ADMIN_TOKEN }}
+      run: |
+        git checkout -b "roles-for-$DELEGATE_REPO"
+
+        # If the PR already exists and is open, we don't need to create it again
+        if ! PR_NUMBER="$(gh pr view --json number -q '. | select(.state | contains("OPEN")) | .number')"; then
+          git config --global user.name "$GITHUB_ACTOR"
+          git config --global user.email "${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"
+
+          git add .
+          git commit -m "Added roles for $DELEGATE_REPO"
+          git push origin "roles-for-$DELEGATE_REPO"
+
+          PR_URL="$(gh pr create --base "main" --title "Roles for $DELEGATE_REPO" --body "This pull request sets up new roles for the $DELEGATE_REPO repository")"
+          PR_NUMBER="$(basename "$PR_URL")"
+        fi
+
+        echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+        echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"

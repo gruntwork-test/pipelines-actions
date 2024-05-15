@@ -1,0 +1,172 @@
+name: Bootstrap a new account in access-control repo
+description: "Sets up a new AWS account and basic roles inside the access control repo"
+inputs:
+  PIPELINES_READ_TOKEN:
+    description: ""
+    required: true
+  INFRA_ROOT_WRITE_TOKEN:
+    description: ""
+    required: true
+  gruntwork_context:
+    description: "Gruntwork Context From the Gruntwork Bootstrap step"
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: "[ProvisionAccount]: Load Gruntwork Context"
+      id: gruntwork_context
+      uses: gruntwork-io/pipelines-bootstrap@v1.0.0
+      with:
+        cache: ${{ inputs.gruntwork_context }}
+        token: ${{ inputs.PIPELINES_READ_TOKEN }}
+
+    - name: "[ProvisionAccount]: Run Terragrunt to Create the account in AWS"
+      id: terragrunt
+      uses: gruntwork-io/pipelines-aws-execute@v2.0.0
+      with:
+        PIPELINES_READ_TOKEN: ${{ inputs.PIPELINES_READ_TOKEN }}
+        account_id: ${{ steps.gruntwork_context.outputs.account_id }}
+        working_directory: ${{ steps.gruntwork_context.outputs.working_directory }}
+        account_role_name: ${{ steps.gruntwork_context.outputs.role_name }}
+        role_session_name: ${{ steps.gruntwork_context.outputs.role_session_name }}
+        gruntwork_context: ${{ inputs.gruntwork_context }}
+
+    - name: "[ProvisionAccount]: Get requesting PR number"
+      id: get_pr_number
+      shell: bash
+      if: ${{ steps.gruntwork_context.outputs.terragrunt_command == 'apply' }}
+      env:
+        COMMIT_SHA: ${{ steps.gruntwork_context.outputs.branch }}
+        GH_TOKEN: ${{ inputs.PIPELINES_READ_TOKEN }}
+        REPO: ${{ github.repository }}
+      run: |
+        PR_NUMBER="$(gh -R "$REPO" pr list --search "$COMMIT_SHA" --state merged --json number -q '.[0].number')"
+        echo "The PR number is: $PR_NUMBER"
+        echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+
+    - name: "[ProvisionAccount]: Check out the architecture-catalog repo"
+      if: ${{ steps.gruntwork_context.outputs.terragrunt_command == 'apply' }}
+      uses: actions/checkout@v4
+      with:
+        repository: gruntwork-io/terraform-aws-architecture-catalog
+        token: ${{ inputs.PIPELINES_READ_TOKEN }}
+        path: terraform-aws-architecture-catalog
+        ref: ${{ steps.gruntwork_context.outputs.arch_catalog_version }}
+
+    - name: "[ProvisionAccount]: Install boilerplate"
+      if: ${{ steps.gruntwork_context.outputs.terragrunt_command == 'apply' }}
+      shell: bash
+      env:
+        GRUNTWORK_INSTALLER_VERSION: ${{ steps.gruntwork_context.outputs.gruntwork_installer_version }}
+        BOILERPLATE_VERSION: ${{ steps.gruntwork_context.outputs.boilerplate_version }}
+      run: |
+        curl -Ls https://raw.githubusercontent.com/gruntwork-io/gruntwork-installer/main/bootstrap-gruntwork-installer.sh | bash /dev/stdin --version "$GRUNTWORK_INSTALLER_VERSION"
+        gruntwork-install --binary-name boilerplate --repo https://github.com/gruntwork-io/boilerplate --tag "$BOILERPLATE_VERSION"
+
+    - name: "[ProvisionAccount]: Run boilerplate to generate baselines for the new account(s)"
+      id: generate_baselines
+      if: ${{ steps.gruntwork_context.outputs.terragrunt_command == 'apply' }}
+      shell: bash
+      env:
+        ACCOUNT_NAMES: ${{ steps.gruntwork_context.outputs.account_names }}
+        ACCOUNT_BASELINE_MODULES_VERSION: ${{ steps.gruntwork_context.outputs.control_tower_modules_version }}
+      run: |
+        # Convert list of accounts to Bash array.
+        IFS=',' read -ra account_names <<<"$ACCOUNT_NAMES"
+
+        first_account_name="${account_names[0]}"
+        request_file_path="./_new-account-requests/account-${first_account_name}.yml"
+
+        org_name_prefix="$(yq -r '.org_name_prefix' "$request_file_path")"
+
+        delegate_management="$(yq -r '.delegate_management // false' "$request_file_path")"
+        delegate_repo_name="$(yq -r '.delegate_repo_name' "$request_file_path")"
+
+        account_family="$(yq -r '.account_family' "$request_file_path")"
+
+        echo "account_family=$account_family" >>$GITHUB_OUTPUT
+
+        for account_name in "${account_names[@]}"; do
+          request_file_path="./_new-account-requests/account-$account_name.yml"
+          ipam_env_name="$(yq -r '.ipam_env_name' "$request_file_path")"
+
+          echo "Updating accounts.yml for account $account_name to set its IPAM env name to $ipam_env_name"
+          yq ".$account_name.ipam-env-name = \"$ipam_env_name\"" -i --prettyPrint accounts.yml
+
+          echo "Generating baseline for account $account_name"
+          aws_region="$(yq -r '.aws_region' "$request_file_path")"
+
+          create_vpc="$(yq -r '.create_vpc // false' "$request_file_path")"
+
+          disable_security_hub="$(yq -r '.disable_security_hub // false' "$request_file_path")"
+          disable_guard_duty="$(yq -r '.disable_guard_duty // false' "$request_file_path")"
+          disable_macie="$(yq -r '.disable_macie // false' "$request_file_path")"
+
+          yq ".$account_name.vpc_created = $create_vpc" -i --prettyPrint accounts.yml
+
+          tags="$(yq -o=json -I=0 '.tags' "$request_file_path")"
+
+          boilerplate \
+            --template-url "terraform-aws-architecture-catalog//templates/single-account-baseline" \
+            --output-folder "." \
+            --var AccountName="$account_name" \
+            --var AwsRegion="$aws_region" \
+            --var OrgNamePrefix="$org_name_prefix" \
+            --var AccountBaselineModulesVersion="$ACCOUNT_BASELINE_MODULES_VERSION" \
+            --var RequestingTeamName="$requesting_team_name" \
+            --var DefaultTags="$tags" \
+            --var CreateVPC="$create_vpc" \
+            --var InfraLiveTeamRepoName="gruntwork-io/$delegate_repo_name" \
+            --var DisableSecurityHub="$disable_security_hub" \
+            --var DisableGuardDuty="$disable_guard_duty" \
+            --var DisableMacie="$disable_macie" \
+            --non-interactive
+        done
+
+    - name: "[ProvisionAccount]: Remove unwanted files before pull request creation"
+      if: ${{ steps.gruntwork_context.outputs.terragrunt_command == 'apply' }}
+      shell: bash
+      run: |
+        rm -rf terraform-aws-architecture-catalog
+        rm -f state.json
+        rm -f details.json
+
+    - name: "[ProvisionAccount]: Create Pull Request"
+      if: ${{ steps.gruntwork_context.outputs.terragrunt_command == 'apply' }}
+      id: create_pr
+      uses: peter-evans/create-pull-request@v6
+      with:
+        base: main
+        token: ${{ inputs.INFRA_ROOT_WRITE_TOKEN }}
+        branch: "enhancement/account-${{ steps.generate_baselines.outputs.account_family }}"
+        commit-message: "Generate account baseline for: ${{ steps.generate_baselines.outputs.account_family }}"
+        title: "Generate account baseline for: ${{ steps.generate_baselines.outputs.account_family }}"
+        body: |
+          This pull request applies an account baseline to the AWS account(s), which was created in https://github.com/${{ github.repository }}/pull/${{ steps.get_pr_number.outputs.pr_number }} using Gruntwork Landing Zone. To **apply** this baseline, do the following:
+
+            1. Inspect the details in this pull request and confirm correctness.
+            2. Merge this pull request.
+
+          Once merged, Gruntwork Pipelines will `terragrunt apply` the baseline in the newly created AWS account(s).
+
+    - name: "[ProvisionAccount]: Communicate PR URL"
+      shell: bash
+      if: ${{ steps.gruntwork_context.outputs.terragrunt_command == 'apply' }}
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        MERGED_PR_URL: https://github.com/${{ github.repository }}/pull/${{ steps.get_pr_number.outputs.pr_number }}
+        CREATED_PR_URL: ${{ steps.create_pr.outputs.pull-request-url }}
+        GH_TOKEN: ${{ inputs.INFRA_ROOT_WRITE_TOKEN }}
+      run: |
+        boilerplate \
+        --template-url "$ACTION_PATH/templates/step-summary" \
+        --output-folder "." \
+        --var PullRequestURL="$CREATED_PR_URL"
+
+        cat step-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+        gh pr comment "$MERGED_PR_URL" \
+        -F step-summary.md
+
+        rm -f step-summary.md

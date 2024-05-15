@@ -1,0 +1,568 @@
+name: Bootstrap Workflow
+description: "Bootstrap workflows with common requirements for Gruntwork Pipelines"
+inputs:
+  token:
+    description: "The GitHub token to use for checking out the infrastructure-live repo"
+    required: true
+  cache:
+    description: "JSON Cache to use"
+    required: false
+    default: ""
+  deploy_branch_name:
+    description: "The name of the configured deploy branch"
+    required: false
+    default: main
+  change_type:
+    description: ""
+    required: false
+  branch:
+    description: ""
+    required: false
+  working_directory:
+    description: ""
+    required: false
+  account_id:
+    description: ""
+    required: false
+  terragrunt_command:
+    description: ""
+    required: false
+  additional_data:
+    description: ""
+    required: false
+  child_account_id:
+    description: ""
+    required: false
+  account_names:
+    description: ""
+    required: false
+  new_account_name:
+    description: "account name used in the filename of the new account request"
+    required: false
+
+outputs:
+  gruntwork_config_file:
+    description: "Absolute path to the .gruntwork/config.yml"
+    value: ${{ steps.cache.outputs.gruntwork_config_file || steps.setup_action.outputs.gruntwork_config_file }}
+  role_name:
+    description: "The AWS role to assume"
+    value: ${{ steps.cache.outputs.role_name || steps.get_role_name.outputs.role_name }}
+  role_session_name:
+    description: "The AWS Session name"
+    value: ${{ steps.cache.outputs.role_session_name || steps.generate_role_session_name.outputs.role_session_name }}
+  pr_number:
+    description: "The PR number"
+    value: ${{ steps.cache.outputs.pr_number || steps.generate_role_session_name.outputs.pr_number }}
+  tofu_version:
+    description: "The version of Terraform that Gruntwork Pipelines will use"
+    value: ${{ steps.cache.outputs.tofu_version || steps.gruntwork_config.outputs.tofu_version }}
+  terragrunt_version:
+    description: "The version of Terragrunt that Gruntwork Pipelines will use"
+    value: ${{ steps.cache.outputs.terragrunt_version || steps.gruntwork_config.outputs.terragrunt_version }}
+  tf_binary:
+    description: ""
+    value: ${{ steps.cache.outputs.tf_binary || steps.gruntwork_config.outputs.tf_binary }}
+  admins:
+    description: "The list of GitHub users that are allowed to use admin functionality in workflows"
+    value: ${{ steps.cache.outputs.admins || steps.get_pipelines_admins.outputs.admins }}
+  action:
+    description: "The type of action to run in this job"
+    value: ${{ steps.cache.outputs.action || steps.setup_action.outputs.action }}
+  child_account_id:
+    description: "The child account id to assume from `account_id`"
+    value: ${{ steps.cache.outputs.child_account_id || steps.setup_action.outputs.child_account_id }}
+  account_id:
+    description: "The management account Id to use"
+    value: ${{ steps.cache.outputs.account_id || steps.setup_action.outputs.account_id }}
+  branch:
+    description: "The branch we're operating on"
+    value: ${{ steps.cache.outputs.branch || steps.setup_action.outputs.branch }}
+  working_directory:
+    description: "Where to run terragrunt"
+    value: ${{ steps.cache.outputs.working_directory || steps.setup_action.outputs.working_directory }}
+  terragrunt_command:
+    description: "Terragrunt command to run e.g. plan/apply"
+    value: ${{ steps.cache.outputs.terragrunt_command || steps.setup_action.outputs.terragrunt_command }}
+  security_account_id:
+    description: "AWS Account ID of the Security Account"
+    value: ${{ steps.cache.outputs.security_account_id || steps.parse.outputs.security_account_id }}
+  shared_account_id:
+    description: "AWS Account ID of the Shared Account"
+    value: ${{ steps.cache.outputs.shared_account_id || steps.parse.outputs.shared_account_id }}
+  logs_account_id:
+    description: "AWS Account ID of the Logs Account"
+    value: ${{ steps.cache.outputs.logs_account_id || steps.parse.outputs.logs_account_id }}
+  account_names:
+    description: ""
+    value: ${{ steps.cache.outputs.account_names || steps.setup_action.outputs.account_names }}
+  additional_data:
+    description: ""
+    value: ${{ steps.cache.outputs.additional_data || steps.setup_action.outputs.additional_data }}
+  org_name_prefix:
+    description: ""
+    value: ${{ steps.cache.outputs.org_name_prefix || steps.account_request.outputs.org_name_prefix }}
+  aws_region:
+    description: ""
+    value: ${{ steps.cache.outputs.aws_region || steps.account_request.outputs.aws_region }}
+  requesting_team_name:
+    description: ""
+    value: ${{ steps.cache.outputs.requesting_team_name || steps.account_request.outputs.requesting_team_name }}
+  account_baseline_modules_version:
+    description: ""
+    value: ${{ steps.cache.outputs.account_baseline_modules_version || steps.account_request.outputs.account_baseline_modules_version }}
+  account_baseline_cis_service_catalog_version:
+    description: ""
+    value: ${{ steps.cache.outputs.account_baseline_cis_service_catalog_version || steps.account_request.outputs.account_baseline_cis_service_catalog_version }}
+  create_vpc:
+    description: ""
+    value: ${{ steps.cache.outputs.create_vpc || steps.account_request.outputs.create_vpc }}
+  tags:
+    description: ""
+    value: ${{ steps.cache.outputs.tags || steps.account_request.outputs.tags }}
+  delegate_management:
+    description: ""
+    value: ${{ steps.cache.outputs.delegate_management || steps.account_request.outputs.delegate_management }}
+  delegate_repo_name:
+    description: ""
+    value: ${{ steps.cache.outputs.delegate_repo_name || steps.account_request.outputs.delegate_repo_name }}
+  deploy_branch_name:
+    description: ""
+    value: ${{ steps.cache.outputs.deploy_branch_name || steps.gruntwork_config.outputs.deploy_branch_name }}
+  gruntwork_installer_version:
+    description: ""
+    value: ${{ steps.cache.outputs.gruntwork_installer_version || steps.gruntwork_config.outputs.gruntwork_installer_version }}
+  module_security_version:
+    description: ""
+    value: ${{ steps.cache.outputs.module_security_version || steps.gruntwork_config.outputs.module_security_version }}
+  control_tower_modules_version:
+    description: ""
+    value: ${{ steps.cache.outputs.control_tower_modules_version || steps.gruntwork_config.outputs.control_tower_modules_version }}
+  boilerplate_version:
+    description: ""
+    value: ${{ steps.cache.outputs.boilerplate_version || steps.gruntwork_config.outputs.boilerplate_version }}
+  arch_catalog_version:
+    description: ""
+    value: ${{ steps.cache.outputs.arch_catalog_version || steps.gruntwork_config.outputs.arch_catalog_version }}
+  default_aws_region:
+    description: ""
+    value: ${{ steps.cache.outputs.default_aws_region || steps.gruntwork_config.outputs.default_aws_region }}
+  access_control_repo:
+    description: ""
+    value: ${{ steps.cache.outputs.access_control_repo || steps.gruntwork_config.outputs.access_control_repo }}
+  github_org:
+    description: ""
+    value: ${{ steps.cache.outputs.github_org || steps.gruntwork_config.outputs.github_org }}
+  infra_modules_repo_name:
+    description: ""
+    value: ${{ steps.cache.outputs.infra_modules_repo_name || steps.gruntwork_config.outputs.infra_modules_repo_name }}
+  infra_modules_release_version:
+    description: ""
+    value: ${{ steps.cache.outputs.infra_modules_release_version || steps.gruntwork_config.outputs.infra_modules_release_version }}
+  catalog_repositories:
+    description: ""
+    value: ${{ steps.cache.outputs.catalog_repositories || steps.gruntwork_config.outputs.catalog_repositories }}
+  github_collaborators:
+    description: ""
+    value: ${{ steps.cache.outputs.github_collaborators || steps.gruntwork_config.outputs.github_collaborators }}
+  is_delegated_repo:
+    description: ""
+    value: ${{ steps.cache.outputs.is_delegated_repo || steps.gruntwork_config.outputs.is_delegated_repo }}
+
+runs:
+  using: composite
+  steps:
+    - name: Unpack and use cache
+      id: cache
+      shell: bash
+      if: ${{ inputs.cache != '' }}
+      env:
+        GRUNTWORK_CONFIG_FILE: ${{ fromJson(inputs.cache || '{}').gruntwork_config_file }}
+        ROLE_NAME: ${{ fromJson(inputs.cache || '{}').role_name }}
+        ROLE_SESSION_NAME: ${{ fromJson(inputs.cache || '{}').role_session_name }}
+        PR_NUMBER: ${{ fromJson(inputs.cache || '{}').pr_number }}
+        TOFU_VERSION: ${{ fromJson(inputs.cache || '{}').tofu_version }}
+        TF_BINARY: ${{ fromJson(inputs.cache || '{}').tf_binary }}
+
+        TERRAGRUNT_VERSION: ${{ fromJson(inputs.cache || '{}').terragrunt_version }}
+        ADMINS: ${{ fromJson(inputs.cache || '{}').admins }}
+        ACTION: ${{ fromJson(inputs.cache || '{}').action }}
+        CHILD_ACCOUNT_ID: ${{ fromJson(inputs.cache || '{}').child_account_id }}
+        ACCOUNT_ID: ${{ fromJson(inputs.cache || '{}').account_id }}
+        BRANCH: ${{ fromJson(inputs.cache || '{}').branch }}
+
+        WORKING_DIRECTORY: ${{ fromJson(inputs.cache || '{}').working_directory }}
+        TERRAGRUNT_COMMAND: ${{ fromJson(inputs.cache || '{}').terragrunt_command }}
+        SECURITY_ACCOUNT_ID: ${{ fromJson(inputs.cache || '{}').security_account_id }}
+        SHARED_ACCOUNT_ID: ${{ fromJson(inputs.cache || '{}').shared_account_id }}
+        LOGS_ACCOUNT_ID: ${{ fromJson(inputs.cache || '{}').logs_account_id }}
+        ACCOUNT_NAMES: ${{ fromJson(inputs.cache || '{}').account_names }}
+
+        NEW_ACCOUNT_NAME: ${{ fromJson(inputs.cache || '{}').new_account_name }}
+        ADDITIONAL_DATA: ${{ fromJson(inputs.cache || '{}').additional_data }}
+        ORG_NAME_PREFIX: ${{ fromJson(inputs.cache || '{}').org_name_prefix }}
+        AWS_REGION: ${{ fromJson(inputs.cache || '{}').aws_region }}
+        REQUESTING_TEAM_NAME: ${{ fromJson(inputs.cache || '{}').requesting_team_name }}
+        ACCOUNT_BASELINE_MODULES_VERSION: ${{ fromJson(inputs.cache || '{}').account_baseline_modules_version }}
+
+        ACCOUNT_BASELINE_CIS_SERVICE_CATALOG_VERSION: ${{ fromJson(inputs.cache || '{}').account_baseline_cis_service_catalog_version }}
+        CREATE_VPC: ${{ fromJson(inputs.cache || '{}').create_vpc }}
+        TAGS: ${{ fromJson(inputs.cache || '{}').tags }}
+        DELEGATE_MANAGEMENT: ${{ fromJson(inputs.cache || '{}').delegate_management }}
+        DELEGATE_REPO_NAME: ${{ fromJson(inputs.cache || '{}').delegate_repo_name }}
+
+        DEPLOY_BRANCH_NAME: ${{ fromJson(inputs.cache || '{}').deploy_branch_name }}
+        GRUNTWORK_INSTALLER_VERSION: ${{ fromJson(inputs.cache || '{}').gruntwork_installer_version }}
+        MODULE_SECURITY_VERSION: ${{ fromJson(inputs.cache || '{}').module_security_version }}
+        CONTROL_TOWER_MODULES_VERSION: ${{ fromJson(inputs.cache || '{}').control_tower_modules_version }}
+        BOILERPLATE_VERSION: ${{ fromJson(inputs.cache || '{}').boilerplate_version }}
+        ARCH_CATALOG_VERSION: ${{ fromJson(inputs.cache || '{}').arch_catalog_version }}
+        DEFAULT_AWS_REGION: ${{ fromJson(inputs.cache || '{}').default_aws_region }}
+        ACCESS_CONTROL_REPO: ${{ fromJson(inputs.cache || '{}').access_control_repo }}
+
+        GITHUB_ORG: ${{ fromJson(inputs.cache || '{}').github_org }}
+        IS_DELEGATED_REPO: ${{ fromJson(inputs.cache || '{}').is_delegated_repo }}
+
+        INFRA_MODULES_REPO_NAME: ${{ fromJson(inputs.cache || '{}').infra_modules_repo_name }}
+        INFRA_MODULES_RELEASE_VERSION: ${{ fromJson(inputs.cache || '{}').infra_modules_release_version }}
+
+        CATALOG_REPOSITORIES: ${{ fromJson(inputs.cache || '{}').catalog_repositories }}
+        GITHUB_COLLABORATORS: ${{ fromJson(inputs.cache || '{}').github_collaborators }}
+      run: |
+        echo "gruntwork_config_file=${GRUNTWORK_CONFIG_FILE}" >> "$GITHUB_OUTPUT"
+        echo "role_name=${ROLE_NAME}" >> "$GITHUB_OUTPUT"
+        echo "role_session_name=${ROLE_SESSION_NAME}" >> "$GITHUB_OUTPUT"
+        echo "pr_number=${PR_NUMBER}" >> "$GITHUB_OUTPUT"
+        echo "tofu_version=${TOFU_VERSION}" >> "$GITHUB_OUTPUT"
+        echo "tf_binary=${TF_BINARY:-opentofu}" >> "$GITHUB_OUTPUT"
+
+        echo "terragrunt_version=${TERRAGRUNT_VERSION}" >> "$GITHUB_OUTPUT"
+        echo "admins=${ADMINS}" >> "$GITHUB_OUTPUT"
+        echo "action=${ACTION}" >> "$GITHUB_OUTPUT"
+        echo "child_account_id=${CHILD_ACCOUNT_ID}" >> "$GITHUB_OUTPUT"
+        echo "account_id=${ACCOUNT_ID}" >> "$GITHUB_OUTPUT"
+        echo "branch=${BRANCH}" >> "$GITHUB_OUTPUT"
+
+        echo "working_directory=${WORKING_DIRECTORY}" >> "$GITHUB_OUTPUT"
+
+        # Remove any whitespace from the terragrunt command that might be there because there are no arguments
+        trimmed_terragrunt_command=$(awk '{$1=$1;print}' <<< "$TERRAGRUNT_COMMAND")
+        echo "terragrunt_command=${trimmed_terragrunt_command}" >> "$GITHUB_OUTPUT"
+
+        echo "security_account_id=${SECURITY_ACCOUNT_ID}" >> "$GITHUB_OUTPUT"
+        echo "shared_account_id=${SHARED_ACCOUNT_ID}" >> "$GITHUB_OUTPUT"
+        echo "logs_account_id=${LOGS_ACCOUNT_ID}" >> "$GITHUB_OUTPUT"
+        echo "account_names=${ACCOUNT_NAMES}" >> "$GITHUB_OUTPUT"
+
+        echo "additional_data=${ADDITIONAL_DATA}" >> "$GITHUB_OUTPUT"
+        echo "org_name_prefix=${ORG_NAME_PREFIX}" >> "$GITHUB_OUTPUT"
+        echo "aws_region=${AWS_REGION}" >> "$GITHUB_OUTPUT"
+        echo "requesting_team_name=${REQUESTING_TEAM_NAME}" >> "$GITHUB_OUTPUT"
+        echo "account_baseline_modules_version=${ACCOUNT_BASELINE_MODULES_VERSION}" >> "$GITHUB_OUTPUT"
+
+        echo "account_baseline_cis_service_catalog_version=${ACCOUNT_BASELINE_CIS_SERVICE_CATALOG_VERSION}" >> "$GITHUB_OUTPUT"
+        echo "create_vpc=${CREATE_VPC}" >> "$GITHUB_OUTPUT"
+        echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
+        echo "delegate_management=${DELEGATE_MANAGEMENT}" >> "$GITHUB_OUTPUT"
+        echo "delegate_repo_name=${DELEGATE_REPO_NAME}" >> "$GITHUB_OUTPUT"
+
+        echo "deploy_branch_name=${DEPLOY_BRANCH_NAME}" >> "$GITHUB_OUTPUT"
+        echo "gruntwork_installer_version=${GRUNTWORK_INSTALLER_VERSION}" >> "$GITHUB_OUTPUT"
+        echo "module_security_version=${MODULE_SECURITY_VERSION}" >> "$GITHUB_OUTPUT"
+        echo "control_tower_modules_version=${CONTROL_TOWER_MODULES_VERSION}" >> "$GITHUB_OUTPUT"
+        echo "boilerplate_version=${BOILERPLATE_VERSION}" >> "$GITHUB_OUTPUT"
+        echo "arch_catalog_version=${ARCH_CATALOG_VERSION}" >> "$GITHUB_OUTPUT"
+        echo "default_aws_region=${DEFAULT_AWS_REGION}" >> "$GITHUB_OUTPUT"
+        echo "access_control_repo=${ACCESS_CONTROL_REPO}" >> "$GITHUB_OUTPUT"
+
+        echo "github_org=${GITHUB_ORG}" >> "$GITHUB_OUTPUT"
+
+        echo "infra_modules_repo_name=${INFRA_MODULES_REPO_NAME}" >> "$GITHUB_OUTPUT"
+        echo "infra_modules_release_version=${INFRA_MODULES_RELEASE_VERSION}" >> "$GITHUB_OUTPUT"
+
+        echo "catalog_repositories=${CATALOG_REPOSITORIES}" >> "$GITHUB_OUTPUT"
+        echo "github_collaborators=${GITHUB_COLLABORATORS}" >> "$GITHUB_OUTPUT"
+
+    - name: Setup Action
+      id: setup_action
+      if: ${{ inputs.cache == '' }}
+      shell: bash
+      env:
+        CHANGE_TYPE: ${{ inputs.change_type }}
+        BRANCH: ${{ inputs.branch }}
+        WORKING_DIRECTORY: ${{ inputs.working_directory }}
+        ACCOUNT_ID: ${{ inputs.account_id }}
+        TERRAGRUNT_COMMAND: ${{ inputs.terragrunt_command }}
+        ADDITIONAL_DATA: ${{ inputs.additional_data }}
+        CHILD_ACCOUNT_ID: ${{ inputs.child_account_id }}
+        ACCOUNT_NAMES: ${{ inputs.account_names }}
+      run: |
+        case $CHANGE_TYPE in
+          "AccountsRequested")
+            echo "action=PROVISION_ACCOUNT" >> "$GITHUB_OUTPUT"
+            echo "account_names=$ACCOUNT_NAMES" >> "$GITHUB_OUTPUT"
+            ;;
+          "AccountsAdded")
+            echo "action=BASELINE_ACCOUNT" >> "$GITHUB_OUTPUT"
+            ;;
+          Pipeline*Permission* )
+            echo "action=TERRAGRUNT_EXECUTE" >> "$GITHUB_OUTPUT"
+            # This seems odd, and it is.  This is to ensure backwards compatibility
+            # between pipelines v2 and v3. In v2 we had different roles for updating
+            # pipelines CI roles in AWS.  In v3 we can simply use root-pipelines-plan/apply.
+            # So in V3 we want terragrunt execute to run under the target account, not the management account,
+            # which is passed from orchestrate as the CHILD_ACCOUNT_ID.
+            ACCOUNT_ID=$CHILD_ACCOUNT_ID
+            ;;
+          *)
+            echo "action=TERRAGRUNT_EXECUTE" >> "$GITHUB_OUTPUT"
+            ;;
+        esac
+
+        echo "child_account_id=$CHILD_ACCOUNT_ID" >> "$GITHUB_OUTPUT"
+        echo "account_id=$ACCOUNT_ID" >> "$GITHUB_OUTPUT"
+        echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+        echo "working_directory=$WORKING_DIRECTORY" >> "$GITHUB_OUTPUT"
+
+        # Remove any whitespace from the terragrunt command that might be there because there are no arguments
+        trimmed_terragrunt_command=$(awk '{$1=$1;print}' <<< "$TERRAGRUNT_COMMAND")
+        echo "terragrunt_command=${trimmed_terragrunt_command}" >> "$GITHUB_OUTPUT"
+
+        gruntwork_config_file="${PWD}/.gruntwork/config.yml"
+        echo "gruntwork_config_file=$gruntwork_config_file" >> "$GITHUB_OUTPUT"
+
+    - name: Generate role session name and requesting PR number
+      id: generate_role_session_name
+      if: ${{ inputs.cache == '' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        COMMIT_SHA: ${{ steps.setup_action.outputs.branch }}
+        TG_CMD: ${{ steps.setup_action.outputs.terragrunt_command }}
+      run: |
+        if [[ $TG_CMD =~ ^(plan|run-all plan) ]]; then
+          PR_SEARCH="$(gh pr list --search "$COMMIT_SHA" --json author --json mergedBy --json number --json baseRefName --json commits)"
+          PR_NUMBER="$(jq '.[-1].number' <<< "$PR_SEARCH")"
+
+          if [[ $(jq '. == []' <<< "$PR_SEARCH") == 'true' ]]; then
+            SESSION_REQUESTER="PullRequest"
+            SESSION_GIT_REF="PR-$(git rev-parse --short "$COMMIT_SHA")"
+          else
+            SESSION_REQUESTER="$(jq -r ".[0].commits[] | select(.oid == \"$COMMIT_SHA\") | .authors[0].login" <<< "$PR_SEARCH")"
+            SESSION_GIT_REF="PR-$(jq -r '.[0].number' <<< "$PR_SEARCH")"
+          fi
+        else
+          PR_SEARCH="$(gh pr list --search "$COMMIT_SHA" --json author --json mergedBy --json number --json baseRefName --json commits --state merged)"
+          PR_NUMBER=$(jq '.[-1].number' <<< "$PR_SEARCH")
+
+          SESSION_REQUESTER="$(jq -r '.[0].mergedBy.login' <<< "$PR_SEARCH")"
+          SESSION_GIT_REF="$(jq -r '.[0].baseRefName' <<< "$PR_SEARCH")"
+        fi
+
+        echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+        echo "role_session_name=$SESSION_REQUESTER-via-GWPipelines@$SESSION_GIT_REF" >> $GITHUB_OUTPUT
+
+    - name: "Read and parse new account request"
+      id: account_request
+      shell: bash
+      if: ${{ inputs.cache == '' && inputs.new_account_name != ''}}
+      # Only try this if we've actually created the account
+      env:
+        NEW_ACCOUNT_NAME: ${{ inputs.new_account_name }}
+      run: |
+        request_file_path="./_new-account-requests/account-$NEW_ACCOUNT_NAME.yml"
+
+        if [ -f "$request_file_path" ]; then
+          org_name_prefix="$(yq -r ".org_name_prefix" "$request_file_path")"
+          aws_region="$(yq -r ".aws_region" "$request_file_path")"
+          requesting_team_name="$(yq -r ".requesting_team_name" "$request_file_path")"
+          account_baseline_modules_version="$(yq -r ".account_baseline_modules_version" "$request_file_path")"
+          account_baseline_cis_service_catalog_version="$(yq -r ".account_baseline_cis_service_catalog_version" "$request_file_path")"
+
+          tags="$(yq -o=json -I=0 '.tags' "$request_file_path")"
+
+          create_vpc="$(yq -r '.create_vpc' "$request_file_path")"
+
+          # Handling edge case where account request file might not have a create_vpc field
+          # We create one by default
+          if [[ "$create_vpc" == "null" ]]; then
+            create_vpc='true'
+          fi
+
+          delegate_management="$(yq -r '.delegate_management // false' "$request_file_path")"
+          delegate_repo_name="$(yq -r '.delegate_repo_name // ""' "$request_file_path")"
+          account_type="$(yq -r '.account_type // ""' "$request_file_path")"
+
+          echo "org_name_prefix=$org_name_prefix" >> "$GITHUB_OUTPUT"
+          echo "aws_region=$aws_region" >> "$GITHUB_OUTPUT"
+          echo "requesting_team_name=$requesting_team_name" >> "$GITHUB_OUTPUT"
+          echo "account_baseline_modules_version=$account_baseline_modules_version" >> "$GITHUB_OUTPUT"
+          echo "account_baseline_cis_service_catalog_version=$account_baseline_cis_service_catalog_version" >> "$GITHUB_OUTPUT"
+          echo "create_vpc=$create_vpc" >> "$GITHUB_OUTPUT"
+          echo "tags=$tags" >> "$GITHUB_OUTPUT"
+          echo "delegate_management=$delegate_management" >> "$GITHUB_OUTPUT"
+          echo "delegate_repo_name=$delegate_repo_name" >> "$GITHUB_OUTPUT"
+          echo "account_type=$account_type" >> "$GITHUB_OUTPUT"
+        else
+          echo "No file found at $request_file_path - must not be a new account request action"
+        fi
+
+    - name: Read infra-live's Gruntwork config file
+      id: gruntwork_config
+      if: ${{ inputs.cache == '' }}
+      shell: bash
+      env:
+        ACCOUNT_TYPE: ${{ steps.account_request.outputs.account_type }}
+        NEW_ACCOUNT_NAME: ${{ inputs.new_account_name }}
+      run: |
+        config=$(cat .gruntwork/config.yml)
+
+        # Initialize an array to store missing keys
+        missing_keys=()
+
+        get_pipelines_config() {
+          local key=$1
+          local yaml_key
+          local value
+
+          yaml_key=".pipelines.$key"
+          value=$(echo "$config" | yq "$yaml_key")
+
+          if [[ "$value" == "null" ]]; then
+            missing_keys+=("$yaml_key")
+          else
+            echo "$value"
+          fi
+        }
+
+        get_pipelines_config_w_default() {
+          local key=$1
+          local default=$2
+          local yaml_key
+          local value
+
+          yaml_key=".pipelines.$key"
+          value=$(echo "$config" | yq "$yaml_key")
+
+          if [[ "$value" == "null" ]]; then
+            echo "$default"
+          else
+            echo "$value"
+          fi
+        }
+
+        get_pipelines_config_as_json_w_default() {
+          local key=$1
+          local default=$2
+          local yaml_key
+          local value
+
+          yaml_key=".pipelines.$key"
+          value=$(echo "$config" | yq -o=json -I=0 "$yaml_key")
+
+          if [[ "$value" == "null" ]]; then
+            echo "$default"
+          else
+            echo "$value"
+          fi
+        }
+
+        raw_terraform_version=$(get_pipelines_config "terraform-version")
+        raw_tofu_version=$(get_pipelines_config "tofu-version")
+
+        # Backwards compatibility with terraform-version in config.yaml
+        tofu_version=${raw_tofu_version:raw_terraform_version}
+
+        terragrunt_version=$(get_pipelines_config "terragrunt-version")
+        tf_binary=$(get_pipelines_config "tf-binary")
+
+        deploy_branch_name=$(get_pipelines_config "deploy-branch-name")
+        gruntwork_installer_version=$(get_pipelines_config "gruntwork-installer-version")
+        module_security_version=$(get_pipelines_config "module-security-version")
+        control_tower_modules_version=$(get_pipelines_config "control-tower-modules-version")
+        boilerplate_version=$(get_pipelines_config "boilerplate-version")
+        arch_catalog_version=$(get_pipelines_config "arch-catalog-version")
+        default_aws_region=$(get_pipelines_config "default-aws-region")
+        access_control_repo=$(get_pipelines_config "access-control-repo-name")
+
+        github_org=$(get_pipelines_config "github-org")
+
+        is_delegated_repo=$(get_pipelines_config_w_default "is-delegated-repo" 'false')
+        is_access_control_repo=$(get_pipelines_config_w_default "is-access-control-repo" 'false')
+
+        role_prefix='root'
+
+        if [[ $is_delegated_repo == 'true' ]]; then
+          role_prefix='delegated'
+        fi
+
+        if [[ $is_access_control_repo == 'true' ]]; then
+          role_prefix='access-control'
+        fi
+
+        infra_modules_repo_name=$(get_pipelines_config "infra-modules-repo-name")
+        infra_modules_release_version=$(get_pipelines_config "infra-modules-release-version")
+
+        if [[ -n "$NEW_ACCOUNT_NAME" ]]; then
+          catalog_repositories="$(get_pipelines_config_as_json_w_default "account-vending.$ACCOUNT_TYPE.catalog-repositories" "[]")"
+          github_collaborators="$(get_pipelines_config_as_json_w_default "account-vending.$ACCOUNT_TYPE.github-collaborators" "[]")"
+        fi
+
+        # Check if there are missing keys and error out if there are
+        if [ ${#missing_keys[@]} -gt 0 ]; then
+          missing_keys_str=$(IFS=,; printf "%s" "${missing_keys[*]}")
+          echo "Error: The following keys do not exist in the YAML content: $missing_keys_str"
+          exit 1
+        fi
+
+        echo "tofu_version=$tofu_version" >> "$GITHUB_OUTPUT"
+        echo "terragrunt_version=$terragrunt_version" >> "$GITHUB_OUTPUT"
+        echo "tf_binary=$tf_binary" >> "$GITHUB_OUTPUT"
+
+        echo "deploy_branch_name=$deploy_branch_name" >> "$GITHUB_OUTPUT"
+        echo "gruntwork_installer_version=$gruntwork_installer_version" >> "$GITHUB_OUTPUT"
+        echo "module_security_version=$module_security_version" >> "$GITHUB_OUTPUT"
+        echo "control_tower_modules_version=$control_tower_modules_version" >> "$GITHUB_OUTPUT"
+        echo "boilerplate_version=$boilerplate_version" >> "$GITHUB_OUTPUT"
+        echo "arch_catalog_version=$arch_catalog_version" >> "$GITHUB_OUTPUT"
+        echo "default_aws_region=$default_aws_region" >> "$GITHUB_OUTPUT"
+        echo "access_control_repo=$access_control_repo" >> "$GITHUB_OUTPUT"
+        echo "github_org=$github_org" >> "$GITHUB_OUTPUT"
+        echo "infra_modules_repo_name=$infra_modules_repo_name" >> "$GITHUB_OUTPUT"
+        echo "infra_modules_release_version=$infra_modules_release_version" >> "$GITHUB_OUTPUT"
+
+        echo "is_delegated_repo=$is_delegated_repo" >> "$GITHUB_OUTPUT"
+        echo "is_access_control_repo=$is_access_control_repo" >> "$GITHUB_OUTPUT"
+        echo "role_prefix=$role_prefix" >> "$GITHUB_OUTPUT"
+
+        if [[ -n "$NEW_ACCOUNT_NAME" ]]; then
+          echo "catalog_repositories=$catalog_repositories" >> "$GITHUB_OUTPUT"
+          echo "github_collaborators=$github_collaborators" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Get AWS role names for Pipelines
+      id: get_role_name
+      if: ${{ inputs.cache == '' }}
+      shell: bash
+      env:
+        TG_CMD: ${{ steps.setup_action.outputs.terragrunt_command }}
+        ROLE_PREFIX: ${{ steps.gruntwork_config.outputs.role_prefix }}
+      run: |
+        role_suffix="pipelines-plan"
+        if ! [[ ${TG_CMD} =~ ^(plan|run-all plan) ]]; then
+          role_suffix="pipelines-apply"
+        fi
+
+        role_name="$ROLE_PREFIX-$role_suffix"
+        echo "role_name=$role_name" >>$GITHUB_OUTPUT
+
+    - name: Parse account IDs
+      id: parse
+      if: ${{ steps.setup_action.outputs.action != 'TERRAGRUNT_EXECUTE' && inputs.cache == '' }}
+      shell: bash
+      run: |
+        security_account_id="$(yq -r ".\"security\".id" "./accounts.yml")"
+        echo "security_account_id=$security_account_id" >> $GITHUB_OUTPUT
+        shared_account_id="$(yq -r ".\"shared\".id" "./accounts.yml")"
+        echo "shared_account_id=$shared_account_id" >> $GITHUB_OUTPUT
+        logs_account_id="$(yq -r ".\"logs\".id" "./accounts.yml")"
+        echo "logs_account_id=$logs_account_id" >> $GITHUB_OUTPUT

@@ -1,0 +1,112 @@
+name: "Pipelines Orchestrate"
+description: "Orchestrate Terragrunt plan/apply/destroy jobs with Gruntwork Pipelines"
+inputs:
+  token:
+    description: "GitHub PAT to retrieve the pipelines repo"
+    required: true
+
+outputs:
+  jobs:
+    description: "An array of jobs to dispatch to Pipelines Execute"
+    value: ${{ steps.orchestrate.outputs.jobs }}
+
+runs:
+  using: "composite"
+  steps:
+
+    - name: Check that required environemnt variables are set
+      shell: bash
+      run: |
+        if [[ -z "$PIPELINES_CLI_VERSION" ]]; then
+          echo "::error::pipelines-orchestrate >= v3 requires that PIPELINES_CLI_VERSION be set, this likely indicates that pipelines orchestrate was version-bumped without also updating pipelines-workflows.  If you are not familiar with pipelines-workflows it likely means you are on an older version of pipelines and should either revert the version change of pipelines-orchestrate or reach out to support@gruntwork.io" >&2
+          exit 1
+        fi
+
+    - uses: actions/checkout@v4
+      path: infra-repo
+      with:
+        # Fetch all history
+        fetch-depth: 0
+
+    - name: Update comment
+      uses: ./pipelines-actions/.github/actions/gruntwork-io/pipelines-status-update
+      with:
+        summary_status: "🔄 Detecting Infrastructure Changes..."
+
+    - name: Set custom ref variables
+      id: ref
+      shell: bash
+      # If this run was triggered manually, we'll use the source and target ref from the user input. Otherwise, we'll
+      # use our default approach.
+      # pull requests need to use pull_request.head.sha, rather than HEAD, because by default HEAD for PRs is a merge commit that isn't in the actual history
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        SOURCE_REF: ${{ inputs.source_ref }}
+        EVENT_NAME: ${{ github.event_name }}
+        PR_TARGET_REF: ${{ inputs.target_ref || github.event.pull_request.head.sha }}
+        HEAD_TARGET_REF: ${{ inputs.target_ref }}
+      run: |
+        echo "source_ref=${SOURCE_REF:-$($ACTION_PATH/scripts/source-ref.sh)}" >> $GITHUB_OUTPUT
+
+        if [[ "$EVENT_NAME" = 'pull_request' ]]; then
+          echo "target_ref=$PR_TARGET_REF" >> $GITHUB_OUTPUT
+        else
+          echo "target_ref=${HEAD_TARGET_REF:-$(git rev-parse HEAD)}" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Get event-type
+      shell: bash
+      id: event_type
+      run: |
+        if [[ "${GITHUB_REF##*/}" == "main" ]]; then
+            echo "event_type=push" >> $GITHUB_OUTPUT
+        else
+            echo "event_type=pr-synched-created" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Download pipelines binary
+      uses: dsaltares/fetch-gh-release-asset@master
+      with:
+        repo: "gruntwork-io/pipelines-cli"
+        version: "tags/${{ env.PIPELINES_CLI_VERSION }}"
+        file: "pipelines_linux_amd64"
+        target: "/tmp/pipelines"
+        token: ${{ inputs.token }}
+
+    - name: Install pipelines
+      shell: bash
+      run: |
+        sudo mv /tmp/pipelines /usr/local/bin/pipelines
+        sudo chmod +x /usr/local/bin/pipelines
+
+    - name: Run Pipelines Orchestrate
+      id: orchestrate
+      shell: bash
+      env:
+        REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+        REPO_PATH: "./infra-repo"
+        SOURCE_REF: ${{ steps.ref.outputs.source_ref }}
+        TARGET_REF: ${{ steps.ref.outputs.target_ref }}
+        EVENT_TYPE: ${{ steps.event_type.outputs.event_type }}
+      run: |
+        JOBS=$(pipelines orchestrate \
+                --repository "$REPO_PATH" \
+                --repository-remote-url "$REPO_URL" \
+                --source-ref "$SOURCE_REF" \
+                --target-ref "$TARGET_REF" \
+                --event-type "$EVENT_TYPE" | jq -c .)
+        echo $JOBS
+        echo "jobs=$JOBS" >> $GITHUB_OUTPUT
+
+    - name: Update comment
+      uses: ./pipelines-actions/.github/actions/gruntwork-io/pipelines-status-update
+      if: success()
+      with:
+        orchestrate_jobs: ${{ steps.orchestrate.outputs.jobs }}
+
+    - name: Update comment
+      uses: ./pipelines-actions/.github/actions/gruntwork-io/pipelines-status-update
+      if: failure()
+      with:
+        step_name: "Detect Changes"
+        step_status: "failed"

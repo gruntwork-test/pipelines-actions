@@ -1,0 +1,58 @@
+name: Pipelines Preflight Checks
+description: "Perform preflight checks before running the pipeline"
+inputs:
+  PIPELINES_READ_TOKEN:
+    description: "The PIPELINES_READ_TOKEN secret"
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Update comment
+      uses: ./pipelines-actions/.github/actions/gruntwork-io/pipelines-status-update
+      with:
+        first_update: "true"
+        summary_status: "🔄 Running preflight checks..."
+
+    - name: Hide any previous comment
+      uses: marocchino/sticky-pull-request-comment@v2
+      with:
+        header: ${{ github.event.before }}
+        hide: true
+        hide_classify: OUTDATED
+
+    - name: Ensure CI User Variables are populated
+      shell: bash
+      env:
+        PIPELINES_READ_TOKEN: ${{ inputs.PIPELINES_READ_TOKEN }}
+      run: |
+        if [[ -z "$PIPELINES_READ_TOKEN" ]]; then echo "Missing PIPELINES_READ_TOKEN"; exit 1; fi
+    # See https://stackoverflow.com/a/76151412
+    - uses: actions/checkout@v4
+      path: infra-repo
+      # Only run if this is a pull request and the target branch is main
+      if: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' }}
+      with:
+        fetch-depth: 0
+
+    - name: Check if branch is ahead of main
+      # Only run if this is a pull request and the target branch is main
+      shell: bash
+      if: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' }}
+      working-directory: ./infra-repo
+      env:
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      run: |
+        if ! git merge-base --is-ancestor origin/main "$HEAD_SHA"; then
+          echo "::error::Branch is not up to date with main"
+          exit 1
+        fi
+
+    - name: Update comment
+      uses: ./pipelines-actions/.github/actions/gruntwork-io/pipelines-status-update
+      if: ${{ failure() }}
+      with:
+        step_name: "Preflight Checks"
+        step_status: "failed"
+        step_details_preview: 'Preflight Results'
+        step_details: "There was an issue with the preflight checks. Please check the logs for detailed output."

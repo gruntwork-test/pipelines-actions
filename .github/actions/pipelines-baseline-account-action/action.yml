@@ -1,0 +1,60 @@
+name: Bootstrap a new account in access-control repo
+description: "Sets up a new AWS account and basic roles inside the access control repo"
+inputs:
+  PIPELINES_READ_TOKEN:
+    description: "The PIPELINES_READ_TOKEN secret"
+    required: true
+  gruntwork_context:
+    description: "Gruntwork Context from the Gruntwork Bootstrap step"
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: "[Baseline]: Read account request"
+      id: gruntwork_context
+      uses: gruntwork-io/pipelines-bootstrap@v1.0.0
+      with:
+        cache: ${{ inputs.gruntwork_context }}
+
+    - name: "[Baseline]: Run terragrunt ${{ steps.gruntwork_context.outputs.terragrunt_command }} in security account"
+      id: terragrunt-apply-security
+      uses: gruntwork-io/pipelines-aws-execute@v2.0.0
+      with:
+        PIPELINES_READ_TOKEN: ${{ inputs.PIPELINES_READ_TOKEN }}
+        account_id: ${{ steps.gruntwork_context.outputs.security_account_id }}
+        account_role_name: ${{ steps.gruntwork_context.outputs.role_name }}
+        role_session_name: ${{ steps.gruntwork_context.outputs.role_session_name }}
+        working_directory: security/_global/account-baseline
+        gruntwork_context: ${{ inputs.gruntwork_context }}
+
+    - name: "[Baseline]: Run terragrunt ${{ steps.gruntwork_context.outputs.terragrunt_command }} in logs account"
+      id: terragrunt-apply-logs
+      uses: gruntwork-io/pipelines-aws-execute@v2.0.0
+      with:
+        PIPELINES_READ_TOKEN: ${{ inputs.PIPELINES_READ_TOKEN }}
+        account_id: ${{ steps.gruntwork_context.outputs.logs_account_id }}
+        account_role_name: ${{ steps.gruntwork_context.outputs.role_name }}
+        role_session_name: ${{ steps.gruntwork_context.outputs.role_session_name }}
+        working_directory: logs/_global/account-baseline
+        gruntwork_context: ${{ inputs.gruntwork_context }}
+
+    - name: "[Baseline]: Run terragrunt ${{ steps.gruntwork_context.outputs.terragrunt_command }} in shared account"
+      id: terragrunt-apply-shared
+      uses: gruntwork-io/pipelines-aws-execute@v2.0.0
+      with:
+        PIPELINES_READ_TOKEN: ${{ inputs.PIPELINES_READ_TOKEN }}
+        account_id: ${{ steps.gruntwork_context.outputs.shared_account_id }}
+        account_role_name: ${{ steps.gruntwork_context.outputs.role_name }}
+        role_session_name: ${{ steps.gruntwork_context.outputs.role_session_name }}
+        working_directory: shared/_global/account-baseline
+        gruntwork_context: ${{ inputs.gruntwork_context }}
+
+    # Finally, auth to the mgmt account so we can assume a role in the child account
+    - name: "[Baseline]: Authenticate to AWS"
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-region:  ${{ steps.gruntwork_context.outputs.default_aws_region }}
+        role-to-assume: "arn:aws:iam::${{ steps.gruntwork_context.outputs.account_id }}:role/${{ steps.gruntwork_context.outputs.role_name }}"
+        role-duration-seconds: 3600
+        role-session-name: ${{ steps.gruntwork_context.outputs.role_session_name }}

@@ -76,6 +76,10 @@ if [[ -n "${FORMATTED_STEP_NAME:-}" ]]; then
         if [[ "$IS_PLAN" == "true" ]]; then
             extended_title="Plan Output"
         fi
+        if [[ "${#step_details_extended}" -gt 4000 ]]; then
+            echo "Length of $FORMATTED_STEP_NAME step_details_extended (${#step_details_extended}) is greater than the maximum character limit (4000)"
+            step_details_extended="$FORMATTED_STEP_NAME logs exceeding max character limit. Please check GitHub Actions logs for full output."
+        fi
     fi
 
     JQSTR="$(

@@ -157,7 +157,7 @@ if [[ $NUM_STEPS -gt 0 ]]; then
             extended="Logs exceeding max character limit. Please check GitHub Actions logs."
         fi
 
-        extended_title="$(jq -r '.extended_title' <<< "$item")"
+        extended_title="$(jq -r '.extended_title //""' <<< "$item")"
 
         if [[ -n "${extended:-}" ]]; then
             extended_html="$(

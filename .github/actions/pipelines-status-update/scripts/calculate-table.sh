@@ -132,7 +132,7 @@ if [[ $NUM_STEPS -gt 0 ]]; then
             echo "$details" >>"$TMPFILE"
         fi
         echo "details extended"
-        echo "$STEP_DETAILS_EXTENDED"
+        echo "${STEP_DETAILS_EXTENDED:-}"
         if [[ -n "${STEP_DETAILS_EXTENDED:-}" ]]; then
             # If the length of `STEP_DETAILS_EXTENDED` is greater than 40000 characters, then we emit a default message instead
             if [[ ${#STEP_DETAILS_EXTENDED} -gt $(getMaximumStepCharacterCount "$NUM_STEPS") ]]; then

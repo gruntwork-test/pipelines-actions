@@ -64,7 +64,6 @@ runs:
 
     - name: Write step_details_extended to disk
       shell: bash
-      if: inputs.step_details_extended != ''
       run: |
         cat <<EOF > step-details-extended.log
         ${{ inputs.step_details_extended }}

@@ -70,6 +70,18 @@ if [[ -n "${FORMATTED_STEP_NAME:-}" ]]; then
     echo "building new json object.."
     key="$FORMATTED_STEP_NAME|$STEP_WORKING_DIRECTORY"
 
+    step_details_extended="$(cat step-details-extended.log)"
+    if [[ -n "${step_details_extended:-}" ]]; then
+        # If the length of `step_details_extended` is greater than 40000 characters, then we emit a default message instead
+        if [[ ${#step_details_extended} -gt $(getMaximumStepCharacterCount "$NUM_STEPS") ]]; then
+            step_details_extended="Logs exceeding max character limit. Please check GitHub Actions logs."
+        fi
+        extended_title="Apply Output"
+        if [[ "$IS_PLAN" == "true" ]]; then
+            extended_title="Plan Output"
+        fi
+    fi
+
     JQSTR="$(
         jq -n \
             --arg key "$key" \
@@ -78,8 +90,10 @@ if [[ -n "${FORMATTED_STEP_NAME:-}" ]]; then
             --arg icon "$icon" \
             --arg working_directory "$STEP_WORKING_DIRECTORY" \
             --arg details_preview "$STEP_DETAILS_PREVIEW" \
+            --arg extended "$step_details_extended" \
+            --arg extended_title "$extended_title" \
             --argjson details "$STEP_DETAILS_JSON" \
-            '{ ($key): { name: $name, status: $status, status_icon: $icon, working_directory: $working_directory, details_preview: $details_preview, details: $details }}'
+            '{ ($key): { name: $name, status: $status, status_icon: $icon, working_directory: $working_directory, details_preview: $details_preview, details: $details, extended: $extended, extended_title: $extended_title}}'
     )"
 
     echo "$JQSTR"
@@ -133,30 +147,23 @@ if [[ $NUM_STEPS -gt 0 ]]; then
         fi
         echo "details extended"
 
-        STEP_DETAILS_EXTENDED="$(cat step-details-extended.log)"
+        extended="$(jq -r '.extended' <<< "$item")"
+        extended_title="$(jq -r '.extended_title' <<< "$item")"
 
-        if [[ -n "${STEP_DETAILS_EXTENDED:-}" ]]; then
-            # If the length of `STEP_DETAILS_EXTENDED` is greater than 40000 characters, then we emit a default message instead
-            if [[ ${#STEP_DETAILS_EXTENDED} -gt $(getMaximumStepCharacterCount "$NUM_STEPS") ]]; then
-                STEP_DETAILS_EXTENDED="Logs exceeding max character limit. Please check GitHub Actions logs."
-            fi
-            extended_title="Apply Output"
-            if [[ "$IS_PLAN" == "true" ]]; then
-                extended_title="Plan Output"
-            fi
-            extended="$(
+        if [[ -n "${extended:-}" ]]; then
+            extended_html="$(
                 cat <<-EOF
 <details><summary>$extended_title</summary>
 
 \`\`\`terraform
-$STEP_DETAILS_EXTENDED
+$extended
 \`\`\`
 </details>
 EOF
 
             )"
 
-            echo "$extended" >>"$TMPFILE"
+            echo "$extended_html" >>"$TMPFILE"
         fi
 
         echo "</td></tr>" >>"$TMPFILE"

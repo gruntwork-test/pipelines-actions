@@ -20,7 +20,7 @@ set -euo pipefail
 # : "${SUMMARY_STATUS:?Environment variable SUMMARY_STATUS must be set}"
 
 function statusToIcon() {
-    status=$1
+    local -r status=$1
     if [[ "$status" = "not_started" ]]; then
         echo "⚪"
         return
@@ -41,7 +41,7 @@ function statusToIcon() {
 }
 
 function getMaximumStepCharacterCount() {
-    steps=$1
+    local -r steps=$1
 
     echo $((40000 / steps))
 }

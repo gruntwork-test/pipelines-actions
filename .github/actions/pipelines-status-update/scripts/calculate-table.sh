@@ -40,6 +40,12 @@ function statusToIcon() {
     echo "$status"
 }
 
+function getMaximumStepCharacterCount() {
+    steps=$1
+
+    echo $((40000 / steps))
+}
+
 # Ensure we have a statefile
 if [[ ! -f "state.json" ]]; then
     echo '{}' >state.json
@@ -126,12 +132,12 @@ if [[ $NUM_STEPS -gt 0 ]]; then
             echo "$details" >>"$TMPFILE"
         fi
         echo "details extended"
-
-        step_details_extended="$(cat step-details-extended.log)"
-
-        if [[ -n "${step_details_extended:-}" ]]; then
-            # We truncate the raw output to avoid blowing up the github comment maximum character limit
-            step_details_extended="${step_details_extended:0:40000}"
+        echo "$STEP_DETAILS_EXTENDED"
+        if [[ -n "${STEP_DETAILS_EXTENDED:-}" ]]; then
+            # If the length of `STEP_DETAILS_EXTENDED` is greater than 40000 characters, then we emit a default message instead
+            if [[ ${#STEP_DETAILS_EXTENDED} -gt $(getMaximumStepCharacterCount "$NUM_STEPS") ]]; then
+                STEP_DETAILS_EXTENDED="Logs exceeding max character limit. Please check GitHub Actions logs."
+            fi
             extended_title="Apply Output"
             if [[ "$IS_PLAN" == "true" ]]; then
                 extended_title="Plan Output"
@@ -141,7 +147,7 @@ if [[ $NUM_STEPS -gt 0 ]]; then
 <details><summary>$extended_title</summary>
 
 \`\`\`terraform
-$step_details_extended
+$STEP_DETAILS_EXTENDED
 \`\`\`
 </details>
 EOF

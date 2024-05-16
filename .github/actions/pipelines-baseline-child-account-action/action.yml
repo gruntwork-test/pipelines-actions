@@ -20,6 +20,7 @@ runs:
     - name: Check out repo code
       uses: actions/checkout@v4
       with:
+        path: infra-repo
         fetch-depth: 0
 
     - name: Bootstrap Workflow

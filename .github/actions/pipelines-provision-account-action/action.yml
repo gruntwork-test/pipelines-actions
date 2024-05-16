@@ -124,15 +124,6 @@ runs:
             --non-interactive
         done
 
-    # - name: "[ProvisionAccount]: Remove unwanted files before pull request creation"
-    #   working-directory: ./infra-repo
-    #   if: ${{ steps.gruntwork_context.outputs.terragrunt_command == 'apply' }}
-    #   shell: bash
-    #   run: |
-    #     rm -rf terraform-aws-architecture-catalog
-    #     rm -f state.json
-    #     rm -f details.json
-
     - name: "[ProvisionAccount]: Create Pull Request"
       if: ${{ steps.gruntwork_context.outputs.terragrunt_command == 'apply' }}
       id: create_pr

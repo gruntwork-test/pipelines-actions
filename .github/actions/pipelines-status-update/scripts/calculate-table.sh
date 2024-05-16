@@ -72,11 +72,6 @@ if [[ -n "${FORMATTED_STEP_NAME:-}" ]]; then
 
     step_details_extended="$(cat step-details-extended.log)"
     if [[ -n "${step_details_extended:-}" ]]; then
-        # If the length of `step_details_extended` is greater than 40000 characters, then we emit a default message instead
-        if [[ ${#step_details_extended} -gt $(getMaximumStepCharacterCount "$NUM_STEPS") ]]; then
-            echo "Length of step_details_extended (${#step_details_extended}) is greater than the maximum character limit of $(getMaximumStepCharacterCount "$NUM_STEPS")"
-            step_details_extended="Logs exceeding max character limit. Please check GitHub Actions logs."
-        fi
         extended_title="Apply Output"
         if [[ "$IS_PLAN" == "true" ]]; then
             extended_title="Plan Output"
@@ -149,6 +144,13 @@ if [[ $NUM_STEPS -gt 0 ]]; then
         echo "details extended"
 
         extended="$(jq -r '.extended' <<< "$item")"
+
+        # If the length of `step_details_extended` is greater than 40000 characters divided by steps, then we emit a default message instead
+        if [[ ${#extended} -gt $(getMaximumStepCharacterCount "$NUM_STEPS") ]]; then
+            echo "Length of step_details_extended (${#step_details_extended}) is greater than the maximum character limit of $(getMaximumStepCharacterCount "$NUM_STEPS")"
+            extended="Logs exceeding max character limit. Please check GitHub Actions logs."
+        fi
+
         extended_title="$(jq -r '.extended_title' <<< "$item")"
 
         if [[ -n "${extended:-}" ]]; then

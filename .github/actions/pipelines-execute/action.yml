@@ -96,52 +96,38 @@ runs:
       with:
         detached: true
 
-    - name: Determine dynamic .mise.toml generation
-      id: determine_mise_toml
+    - name: Setup Mise Toml
+      id: mise-toml
+      working_directory: ./infra-repo
       shell: bash
       env:
         GENERATE_MISE_TOML: ${{ inputs.generate_mise_toml }}
         INFRA_LIVE_DIRECTORY: ${{ inputs.infra_live_directory }}
-      run: |
-        if [[ "$GENERATE_MISE_TOML" == "true" ]]; then
-          echo "generate_mise_toml=true" >> "$GITHUB_OUTPUT"
-        else
-          echo 'Confirming user has a `.mise.toml` file already'
-          if [[ -f "$INFRA_LIVE_DIRECTORY/.mise.toml" ]]; then
-            echo "generate_mise_toml=false" >> "$GITHUB_OUTPUT"
-          else
-            echo 'User does not have a `.mise.toml` file, generating one to avoid failure'
-            echo "generate_mise_toml=true" >> "$GITHUB_OUTPUT"
-          fi
-        fi
-
-    - name: Setup Mise Toml
-      if: ${{ steps.determine_mise_toml.outputs.generate_mise_toml == 'true' }}
-      id: mise-toml
-      shell: bash
-      env:
         TF_VERSION: ${{ inputs.tf_version }}
         TG_VERSION: ${{ inputs.tg_version }}
         TF_BINARY: ${{ inputs.tf_binary }}
       run: |
-        echo 'TOML<<EOF' >> "$GITHUB_OUTPUT"
-        echo '[tools]' >> "$GITHUB_OUTPUT"
-        echo "$TF_BINARY = \"$TF_VERSION\"" >> "$GITHUB_OUTPUT"
-        echo "terragrunt = \"$TG_VERSION\"" >> "$GITHUB_OUTPUT"
-        echo 'EOF' >> "$GITHUB_OUTPUT"
+        if [[ "$GENERATE_MISE_TOML" == "true" ]] || [[ ! -f "$INFRA_LIVE_DIRECTORY/.mise.toml" ]]; then
+          if [[ ! -f "$INFRA_LIVE_DIRECTORY/.mise.toml" ]]; then
+            echo 'User does not have a `.mise.toml` file, generating one to avoid failure'
+          fi
+          echo 'TOML<<EOF' >> "$GITHUB_OUTPUT"
+          echo '[tools]' >> "$GITHUB_OUTPUT"
+          echo "$TF_BINARY = \"$TF_VERSION\"" >> "$GITHUB_OUTPUT"
+          echo "terragrunt = \"$TG_VERSION\"" >> "$GITHUB_OUTPUT"
+          echo 'EOF' >> "$GITHUB_OUTPUT"
+        else
+          echo 'TOML<<EOF' >> "$GITHUB_OUTPUT"
+          cat $INFRA_LIVE_DIRECTORY/.mise.toml >> "$GITHUB_OUTPUT"
+          echo '' >> "$GITHUB_OUTPUT"
+          echo 'EOF' >> "$GITHUB_OUTPUT"
+        fi
 
     - uses: jdx/mise-action@v2
-      if: ${{ steps.determine_mise_toml.outputs.generate_mise_toml == 'true' }}
       with:
           install: true
           cache: true
           mise_toml: "${{ steps.mise-toml.outputs.TOML }}"
-
-    - uses: jdx/mise-action@v2
-      if: ${{ steps.determine_mise_toml.outputs.generate_mise_toml == 'false' }}
-      with:
-          install: true
-          cache: true
 
     - name: Test Terraform, OpenTofu and Terragrunt
       shell: bash

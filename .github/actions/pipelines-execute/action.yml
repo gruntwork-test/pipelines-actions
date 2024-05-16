@@ -161,6 +161,7 @@ runs:
 
     - name: Run Pipelines Execute
       id: execute
+      working-directory: ./infra-repo
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.token }}
@@ -207,6 +208,7 @@ runs:
 
     - name: Parse resulting plans
       id: parse-plan
+      working-directory: ./infra-repo
       shell: bash
       env:
         TF_BINARY: ${{ inputs.tf_binary }}

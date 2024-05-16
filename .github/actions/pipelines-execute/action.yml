@@ -132,8 +132,8 @@ runs:
     - name: Test Terraform, OpenTofu and Terragrunt
       shell: bash
       run: |
-        terraform --version || true
         tofu --version || true
+        terraform --version || true
         terragrunt --version
 
     - name: Download Pipelines CLI

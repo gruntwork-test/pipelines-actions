@@ -146,8 +146,10 @@ if [[ $NUM_STEPS -gt 0 ]]; then
         extended="$(jq -r '.extended' <<< "$item")"
 
         # If the length of `step_details_extended` is greater than 40000 characters divided by steps, then we emit a default message instead
-        if (( "${#extended}" > "$(getMaximumStepCharacterCount "$NUM_STEPS")" )); then
-            echo "Length of step_details_extended (${#step_details_extended}) is greater than the maximum character limit of $(getMaximumStepCharacterCount "$NUM_STEPS")"
+        extended_len="${#extended}"
+        max_len="$(getMaximumStepCharacterCount "$NUM_STEPS")"
+        if (( "$extended_len" > "$max_len" )); then
+            echo "Length of step_details_extended ($extended_len) is greater than the maximum character limit ($max_len)"
             extended="Logs exceeding max character limit. Please check GitHub Actions logs."
         fi
 

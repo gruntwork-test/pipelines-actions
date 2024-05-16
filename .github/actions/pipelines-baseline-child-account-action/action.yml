@@ -17,12 +17,6 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Check out repo code
-      uses: actions/checkout@v4
-      with:
-        path: infra-repo
-        fetch-depth: 0
-
     - name: Bootstrap Workflow
       id: gruntwork_context
       uses: ./pipelines-actions/.github/actions/pipelines-bootstrap

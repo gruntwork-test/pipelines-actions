@@ -22,12 +22,6 @@ runs:
           exit 1
         fi
 
-    - uses: actions/checkout@v4
-      with:
-        path: infra-repo
-        # Fetch all history
-        fetch-depth: 0
-
     - name: Update comment
       uses: ./pipelines-actions/.github/actions/pipelines-status-update
       with:

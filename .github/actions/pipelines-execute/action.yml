@@ -98,7 +98,7 @@ runs:
 
     - name: Setup Mise Toml
       id: mise-toml
-      working_directory: ./infra-repo
+      working-directory: ./infra-repo
       shell: bash
       env:
         GENERATE_MISE_TOML: ${{ inputs.generate_mise_toml }}

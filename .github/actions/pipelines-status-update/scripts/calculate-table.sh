@@ -87,7 +87,7 @@ if [[ -n "${FORMATTED_STEP_NAME:-}" ]]; then
             --arg working_directory "$STEP_WORKING_DIRECTORY" \
             --arg details_preview "$STEP_DETAILS_PREVIEW" \
             --rawfile extended "step-details-extended.log" \
-            --arg extended_title "$extended_title" \
+            --arg extended_title "${extended_title:-}" \
             --argjson details "$STEP_DETAILS_JSON" \
             '{ ($key): { name: $name, status: $status, status_icon: $icon, working_directory: $working_directory, details_preview: $details_preview, details: $details, extended: $extended, extended_title: $extended_title}}'
     )"

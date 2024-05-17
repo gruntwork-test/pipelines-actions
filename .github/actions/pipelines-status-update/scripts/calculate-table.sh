@@ -76,10 +76,6 @@ if [[ -n "${FORMATTED_STEP_NAME:-}" ]]; then
         if [[ "$IS_PLAN" == "true" ]]; then
             extended_title="Plan Output"
         fi
-        if [[ "${#step_details_extended}" -gt 4000 ]]; then
-            echo "step_details_extended (${#step_details_extended}) is greater than the maximum character limit (4000)"
-            step_details_extended="Logs exceeded max character limit. Please check GitHub Actions logs for full output."
-        fi
     fi
 
     JQSTR="$(
@@ -90,7 +86,7 @@ if [[ -n "${FORMATTED_STEP_NAME:-}" ]]; then
             --arg icon "$icon" \
             --arg working_directory "$STEP_WORKING_DIRECTORY" \
             --arg details_preview "$STEP_DETAILS_PREVIEW" \
-            --arg extended "$step_details_extended" \
+            --rawfile extended "step-details-extended.log" \
             --arg extended_title "$extended_title" \
             --argjson details "$STEP_DETAILS_JSON" \
             '{ ($key): { name: $name, status: $status, status_icon: $icon, working_directory: $working_directory, details_preview: $details_preview, details: $details, extended: $extended, extended_title: $extended_title}}'

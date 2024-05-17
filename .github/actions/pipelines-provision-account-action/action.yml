@@ -124,24 +124,47 @@ runs:
             --non-interactive
         done
 
+    # FIXME(DEV-223): Use setup-pipelines action
+    - name: Download Pipelines CLI
+      uses: dsaltares/fetch-gh-release-asset@1.1.2
+      with:
+        repo: "gruntwork-io/pipelines-cli"
+        version: "tags/${{ env.PIPELINES_CLI_VERSION }}"
+        file: "pipelines_linux_amd64"
+        target: "/tmp/pipelines"
+        token: ${{ inputs.token }}
+
+    - name: Install Pipelines CLI
+      shell: bash
+      run: |
+        sudo mv /tmp/pipelines /usr/local/bin/pipelines
+        sudo chmod +x /usr/local/bin/pipelines
+
     - name: "[ProvisionAccount]: Create Pull Request"
       if: ${{ steps.gruntwork_context.outputs.terragrunt_command == 'apply' }}
       id: create_pr
-      uses: peter-evans/create-pull-request@v6
-      with:
-        path: ./infra-repo
-        base: main
-        token: ${{ inputs.INFRA_ROOT_WRITE_TOKEN }}
-        branch: "enhancement/account-${{ steps.generate_baselines.outputs.account_family }}"
-        commit-message: "Generate account baseline for: ${{ steps.generate_baselines.outputs.account_family }}"
-        title: "Generate account baseline for: ${{ steps.generate_baselines.outputs.account_family }}"
-        body: |
+      env:
+        GH_TOKEN: ${{ secrets.INFRA_ROOT_WRITE_TOKEN }}
+        AUTHOR_NAME: ${{ github.actor }}
+        AUTHOR_EMAIL: ${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com
+        BRANCH: "enhancement/account-${{ steps.generate_baselines.outputs.account_family }}"
+        COMMIT_MESSAGE: "Generate account baseline for: ${{ steps.generate_baselines.outputs.account_family }}"
+        BODY: |
           This pull request applies an account baseline to the AWS account(s), which was created in https://github.com/${{ github.repository }}/pull/${{ steps.get_pr_number.outputs.pr_number }} using Gruntwork Landing Zone. To **apply** this baseline, do the following:
 
             1. Inspect the details in this pull request and confirm correctness.
             2. Merge this pull request.
 
           Once merged, Gruntwork Pipelines will `terragrunt apply` the baseline in the newly created AWS account(s).
+      run: |
+        pipelines scm propose-infra-change \
+        --working-directory "./infra-repo" \
+        --change-request-branch-name "$BRANCH" \
+        --commit-message "$COMMIT_MESSAGE" \
+        --body "$BODY" \
+        --author-name "$AUTHOR_NAME" \
+        --author-email "$AUTHOR_EMAIL" \
+        --force true
 
     - name: "[ProvisionAccount]: Communicate PR URL"
       shell: bash
@@ -149,7 +172,7 @@ runs:
       env:
         ACTION_PATH: ${{ github.action_path }}
         MERGED_PR_URL: https://github.com/${{ github.repository }}/pull/${{ steps.get_pr_number.outputs.pr_number }}
-        CREATED_PR_URL: ${{ steps.create_pr.outputs.pull-request-url }}
+        CREATED_PR_URL: ${{ steps.create_pr.outputs.pipelines_change_request_url }}
         GH_TOKEN: ${{ inputs.INFRA_ROOT_WRITE_TOKEN }}
       run: |
         boilerplate \

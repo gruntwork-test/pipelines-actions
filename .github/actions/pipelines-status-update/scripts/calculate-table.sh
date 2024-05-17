@@ -103,7 +103,12 @@ if [[ -n "${FORMATTED_STEP_NAME:-}" ]]; then
 
     # We have to do this as a separate step because any time `extended` is rendered as an argument for a program, there is a risk that the action will explode.
     echo "building extended state..."
-    jq --rawfile extended "$STEP_DETAILS_EXTENDED_LOG" '{ ($key): { extended: $extended } }' detailed_state.json >extended_state.json
+    jq \
+        --arg key "$key" \
+        --rawfile extended "$STEP_DETAILS_EXTENDED_LOG" \
+        '{ ($key): { extended: $extended } }' \
+        detailed_state.json \
+        >extended_state.json
 
     echo "finalizing updated state..."
     mv extended_state.json updated_state.json

@@ -98,12 +98,14 @@ if [[ -n "${FORMATTED_STEP_NAME:-}" ]]; then
     echo "$JQSTR"
     NEWJSON="$(jq "$JQSTR" details.json)"
     echo "$NEWJSON"
-    echo "building new state..."
+    echo "building detailed state..."
     jq ". + $NEWJSON" state.json >detailed_state.json
 
     # We have to do this as a separate step because any time `extended` is rendered as an argument for a program, there is a risk that the action will explode.
+    echo "building extended state..."
     jq --arg rawfile extended "$STEP_DETAILS_EXTENDED_LOG" '{ ($key): { extended: $extended } }' detailed_state.json >extended_state.json
 
+    echo "finalizing state..."
     mv extended_state.json updated_state.json
 
     cat state.json

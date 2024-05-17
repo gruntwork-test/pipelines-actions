@@ -26,6 +26,6 @@ Due to the fact that GitHub Actions lack certain flexibility when organized in a
 
 1. The top level directory of a runner is kept as clean as possible, with work being done within a subdirectory.
 2. Actions are used by checking out the monorepo using `actions/checkout` at a specified revision, then referenced in a `uses` field with a relative path.
-3. `infrastructure-live` repositories are checked out into a subdirectory of the runner (typically `infra-repo`), and actions are configured to expect the repository to be in that location.
+3. `infrastructure-live` repositories are checked out into a subdirectory of the runner (`infra-live-repo`), and actions are configured to expect the repository to be in that location.
 
 The advantage of accepting these limitations is that it allows for a single source of truth for all actions, and allows for easier management of dependencies between actions. Over time, the objective is to move more and more of the logic into the Pipelines CLI, which will allow for certain actions to be deprecated and reorganized.

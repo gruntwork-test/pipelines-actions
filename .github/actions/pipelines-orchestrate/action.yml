@@ -29,7 +29,7 @@ runs:
 
     - name: Set custom ref variables
       id: ref
-      working-directory: ./infra-repo
+      working-directory: ./infra-live-repo
       shell: bash
       # If this run was triggered manually, we'll use the source and target ref from the user input. Otherwise, we'll
       # use our default approach.
@@ -76,7 +76,7 @@ runs:
 
     - name: Run Pipelines Orchestrate
       id: orchestrate
-      working-directory: ./infra-repo
+      working-directory: ./infra-live-repo
       shell: bash
       env:
         REPO_URL: ${{ github.server_url }}/${{ github.repository }}

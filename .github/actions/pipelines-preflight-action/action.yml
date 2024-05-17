@@ -33,7 +33,7 @@ runs:
       # Only run if this is a pull request and the target branch is main
       shell: bash
       if: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' }}
-      working-directory: ./infra-repo
+      working-directory: ./infra-live-repo
       env:
         HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       run: |

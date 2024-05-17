@@ -41,6 +41,7 @@ jobs:
 
     - name: Run terragrunt
       id: terragrunt
+      # FIXME: This is no longer accurate.
       uses: gruntwork-io/pipelines-execute@v0.0.1
       env:
         PIPELINES_CLI_VERSION: v0.2.0

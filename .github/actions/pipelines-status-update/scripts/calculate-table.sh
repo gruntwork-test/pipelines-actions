@@ -9,6 +9,7 @@ set -euo pipefail
 # : "${STEP_DETAILS_JSON:?Environment variable STEP_DETAILS_JSON must be set}"
 # : "${STEP_DETAILS_EXTENDED:?Environment variable STEP_DETAILS_EXTENDED must be set}"
 # : "${STEP_DETAILS_PREVIEW:?Environment variable STEP_DETAILS_PREVIEW must be set}"
+# : "${STEP_DETAILS_EXTENDED_LOG:?Environment variable STEP_DETAILS_EXTENDED_LOG must be set}"
 # : "${STEP_STATUS:?Environment variable STEP_STATUS must be set}"
 # : "${RUNNER_TEMP:?Environment variable RUNNER_TEMP must be set}"
 # : "${GITHUB_OUTPUT:?Environment variable GITHUB_OUTPUT must be set}"
@@ -70,12 +71,15 @@ if [[ -n "${FORMATTED_STEP_NAME:-}" ]]; then
     echo "building new json object.."
     key="$FORMATTED_STEP_NAME|$STEP_WORKING_DIRECTORY"
 
-    step_details_extended="$(cat step-details-extended.log)"
-    if [[ -n "${step_details_extended:-}" ]]; then
+    if [[ -f "${STEP_DETAILS_EXTENDED_LOG}" ]]; then
         extended_title="Apply Output"
         if [[ "$IS_PLAN" == "true" ]]; then
             extended_title="Plan Output"
         fi
+    else
+        # This is just to ensure that the file exists, even if it's empty
+        touch empty.log
+        STEP_DETAILS_EXTENDED_LOG=empty.log
     fi
 
     JQSTR="$(
@@ -86,7 +90,7 @@ if [[ -n "${FORMATTED_STEP_NAME:-}" ]]; then
             --arg icon "$icon" \
             --arg working_directory "$STEP_WORKING_DIRECTORY" \
             --arg details_preview "$STEP_DETAILS_PREVIEW" \
-            --rawfile extended "step-details-extended.log" \
+            --rawfile extended "$STEP_DETAILS_EXTENDED_LOG" \
             --arg extended_title "${extended_title:-}" \
             --argjson details "$STEP_DETAILS_JSON" \
             '{ ($key): { name: $name, status: $status, status_icon: $icon, working_directory: $working_directory, details_preview: $details_preview, details: $details, extended: $extended, extended_title: $extended_title}}'

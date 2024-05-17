@@ -27,7 +27,7 @@ inputs:
     description: "The output of pipelines orchestrate, used to scaffold the status update"
     required: false
     default: ''
-  step_details_extended:
+  step_details_extended_log:
     description: ""
     required: false
     default: ""
@@ -62,13 +62,6 @@ runs:
         ORCHESTRATE_JOBS: ${{ inputs.orchestrate_jobs }}
       run: "$ACTION_PATH/scripts/calculate-initial-state.sh"
 
-    - name: Write step_details_extended to disk
-      shell: bash
-      run: |
-        cat <<EOF > step-details-extended.log
-        ${{ inputs.step_details_extended }}
-        EOF
-
     - name: Calculate Table
       id: calculate
       shell: bash
@@ -82,6 +75,7 @@ runs:
         FORMATTED_NAME: ${{ steps.step_name.outputs.formatted_name }}
         STEP_WORKING_DIRECTORY: ${{ inputs.step_working_directory }}
         STEP_DETAILS_PREVIEW: ${{ inputs.step_details_preview }}
+        STEP_DETAILS_EXTENDED_LOG: ${{ inputs.step_details_extended_log }}
         GITHUB_REPOSITORY: ${{ github.repository }}
         GITHUB_RUN_ID: ${{ github.run_id }}
         PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}

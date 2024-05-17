@@ -63,6 +63,7 @@ jobs:
 
       - name: Run Pipelines Orchestrate
         id: orchestrate
+        # FIXME: This is no longer accurate.
         uses: gruntwork-io/pipelines-orchestrate@v1.0.0
         with:
           repository-path: '.'

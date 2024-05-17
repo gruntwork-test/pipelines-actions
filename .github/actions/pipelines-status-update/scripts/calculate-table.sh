@@ -143,7 +143,7 @@ if [[ $NUM_STEPS -gt 0 ]]; then
         fi
         echo "details extended"
 
-        extended="$(jq -r '.extended' <<< "$item")"
+        extended="$(jq -r '.extended //""' <<< "$item")"
 
         # If the length of `step_details_extended` is greater than 40000 characters divided by steps, then we emit a default message instead
         extended_len="${#extended}"

@@ -4,30 +4,6 @@ This GitHub Action, named "Pipelines Orchestrate," is designed to automate the o
 
 ## Inputs
 
-### `repository-path`
-
-The relative path to the infra-live code repository. Defaults to "."
-
-### `repository-url`
-
-The GitHub URL for the repository. This input is required.
-
-### `source-ref`
-
-The commit to use as the basis against which a diff will be generated. This input is required.
-
-### `target-ref`
-
-The most recent commit. This input is required.
-
-### `event-type`
-
-The type of event that triggered the workflow. Choose between "push" (for direct pushes to the main branch) or "pr-synched-created" (for pull request synchronization/creation). This input is required.
-
-### `gruntwork-config`
-
-Base64 encoded content of the Gruntwork Config YAML file. This input is required.
-
 ### `token`
 
 GitHub Personal Access Token (PAT) required for retrieving the pipelines binary. This input is required.
@@ -41,41 +17,21 @@ An array of jobs to be dispatched to the Pipelines Execute step.
 ## Usage
 
 ```yaml
-name: Pipelines Orchestration Workflow
+- name: Checkout infra-live repository
+  uses: actions/checkout@v4
+  with:
+    path: infra-live-repo
+    fetch-depth: 0
 
-on:
-  push:
-    branches:
-      - main
-  pull_request:
-    types:
-      - synchronize
-      - opened
+- name: Checkout Pipelines Actions
+  uses: actions/checkout@v4
+  with:
+    path: pipelines-actions
+    repository: gruntwork-io/pipelines-actions
 
-jobs:
-  orchestrate_pipelines:
-    name: Orchestrate Pipelines Jobs
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v2
-
-      - name: Run Pipelines Orchestrate
-        id: orchestrate
-        # FIXME: This is no longer accurate.
-        uses: gruntwork-io/pipelines-orchestrate@v1.0.0
-        with:
-          repository-path: '.'
-          repository-url: ${{ github.repository }}
-          source-ref: ${{ github.event.before }}
-          target-ref: ${{ github.sha }}
-          event-type: ${{ github.event_name }}
-          gruntwork-config: "cGlwZWxpbmVzO...VudF92ZXJzaW9uOiAwLjQ4LjEK" # Base64 encoded content of the Gruntwork Config YAML file
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Dispatch Pipelines Jobs
-        run: |
-          # Use the output 'jobs' from the orchestrate step to dispatch jobs
-
+- name: Pipelines Orchestrate
+  id: orchestrate
+  uses: ./pipelines-actions/.github/actions/pipelines-orchestrate
+  with:
+    token: ${{ secrets.PIPELINES_READ_TOKEN }}
 ```

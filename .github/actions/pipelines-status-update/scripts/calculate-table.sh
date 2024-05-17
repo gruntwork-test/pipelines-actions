@@ -90,17 +90,22 @@ if [[ -n "${FORMATTED_STEP_NAME:-}" ]]; then
             --arg icon "$icon" \
             --arg working_directory "$STEP_WORKING_DIRECTORY" \
             --arg details_preview "$STEP_DETAILS_PREVIEW" \
-            --rawfile extended "$STEP_DETAILS_EXTENDED_LOG" \
             --arg extended_title "${extended_title:-}" \
             --argjson details "$STEP_DETAILS_JSON" \
-            '{ ($key): { name: $name, status: $status, status_icon: $icon, working_directory: $working_directory, details_preview: $details_preview, details: $details, extended: $extended, extended_title: $extended_title}}'
+            '{ ($key): { name: $name, status: $status, status_icon: $icon, working_directory: $working_directory, details_preview: $details_preview, details: $details, extended_title: $extended_title}}'
     )"
 
     echo "$JQSTR"
     NEWJSON="$(jq "$JQSTR" details.json)"
     echo "$NEWJSON"
     echo "building new state..."
-    jq ". + $NEWJSON" state.json >updated_state.json
+    jq ". + $NEWJSON" state.json >detailed_state.json
+
+    # We have to do this as a separate step because any time `extended` is rendered as an argument for a program, there is a risk that the action will explode.
+    jq --arg rawfile extended "$STEP_DETAILS_EXTENDED_LOG" '{ ($key): { extended: $extended } }' detailed_state.json >extended_state.json
+
+    mv extended_state.json updated_state.json
+
     cat state.json
     cat updated_state.json
     mv updated_state.json state.json

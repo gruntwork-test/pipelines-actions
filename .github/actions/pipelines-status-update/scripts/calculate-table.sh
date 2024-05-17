@@ -106,7 +106,7 @@ if [[ -n "${FORMATTED_STEP_NAME:-}" ]]; then
     jq \
         --arg key "$key" \
         --rawfile extended "$STEP_DETAILS_EXTENDED_LOG" \
-        '{ ($key): { extended: $extended } }' \
+        '.[$key].extended = $extended' \
         detailed_state.json \
         >extended_state.json
 

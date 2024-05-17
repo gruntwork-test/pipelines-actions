@@ -202,7 +202,7 @@ runs:
           --gruntwork-config-file "$GRUNTWORK_CONFIG_FILE" \
           --out-dir="$PLAN_FOLDER" | tee "$execute_stdout_log"
 
-        echo "execute_stdout_log=$execute_stdout_log<<EOF" >> $GITHUB_OUTPUT
+        echo "execute_stdout_log=$execute_stdout_log" >> $GITHUB_OUTPUT
         echo "plan_folder=$plan_folder" >> $GITHUB_OUTPUT
 
     - name: Parse resulting plans

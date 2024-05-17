@@ -200,7 +200,7 @@ runs:
           --deployment-branch "$DEPLOY_BRANCH_NAME" \
           --gruntwork-config "$GRUNTWORK_CONFIG" \
           --gruntwork-config-file "$GRUNTWORK_CONFIG_FILE" \
-          --out-dir="$PLAN_FOLDER" | tee "$execute_stdout_log"
+          --out-dir="$plan_folder" | tee "$execute_stdout_log"
 
         sed -e "s/\x1b\[.\{1,5\}m//g" <"$execute_stdout_log" >"$execute_stdout_log.tmp"
         mv "$execute_stdout_log.tmp" "$execute_stdout_log"

@@ -76,7 +76,7 @@ runs:
         IFS=',' read -ra account_names <<<"$ACCOUNT_NAMES"
 
         first_account_name="${account_names[0]}"
-        request_file_path="./infra-repo/_new-account-requests/account-${first_account_name}.yml"
+        request_file_path="./infra-live-repo/_new-account-requests/account-${first_account_name}.yml"
 
         org_name_prefix="$(yq -r '.org_name_prefix' "$request_file_path")"
 
@@ -88,11 +88,11 @@ runs:
         echo "account_family=$account_family" >>$GITHUB_OUTPUT
 
         for account_name in "${account_names[@]}"; do
-          request_file_path="./infra-repo/_new-account-requests/account-$account_name.yml"
+          request_file_path="./infra-live-repo/_new-account-requests/account-$account_name.yml"
           ipam_env_name="$(yq -r '.ipam_env_name' "$request_file_path")"
 
           echo "Updating accounts.yml for account $account_name to set its IPAM env name to $ipam_env_name"
-          yq ".$account_name.ipam-env-name = \"$ipam_env_name\"" -i --prettyPrint ./infra-repo/accounts.yml
+          yq ".$account_name.ipam-env-name = \"$ipam_env_name\"" -i --prettyPrint ./infra-live-repo/accounts.yml
 
           echo "Generating baseline for account $account_name"
           aws_region="$(yq -r '.aws_region' "$request_file_path")"
@@ -103,13 +103,13 @@ runs:
           disable_guard_duty="$(yq -r '.disable_guard_duty // false' "$request_file_path")"
           disable_macie="$(yq -r '.disable_macie // false' "$request_file_path")"
 
-          yq ".$account_name.vpc_created = $create_vpc" -i --prettyPrint ./infra-repo/accounts.yml
+          yq ".$account_name.vpc_created = $create_vpc" -i --prettyPrint ./infra-live-repo/accounts.yml
 
           tags="$(yq -o=json -I=0 '.tags' "$request_file_path")"
 
           boilerplate \
             --template-url "./terraform-aws-architecture-catalog//templates/single-account-baseline" \
-            --output-folder "./infra-repo" \
+            --output-folder "./infra-live-repo" \
             --var AccountName="$account_name" \
             --var AwsRegion="$aws_region" \
             --var OrgNamePrefix="$org_name_prefix" \
@@ -129,7 +129,7 @@ runs:
       id: create_pr
       uses: peter-evans/create-pull-request@v6
       with:
-        path: ./infra-repo
+        path: ./infra-live-repo
         base: main
         token: ${{ inputs.INFRA_ROOT_WRITE_TOKEN }}
         branch: "enhancement/account-${{ steps.generate_baselines.outputs.account_family }}"
